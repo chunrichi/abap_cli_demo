@@ -1,0 +1,5 @@
+# abap push / check 扫描时跳过的路径（gitignore 语法）
+tmp/
+node_modules/
+screenshots/
+*.md

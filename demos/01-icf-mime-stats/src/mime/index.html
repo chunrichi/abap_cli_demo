@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>开发统计看板</title>
+  <link rel="stylesheet" href="/sap/bc/zdma_01_stats/styles.css">
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand">
+        <h1>开发统计看板</h1>
+        <p class="sub">变更文档 · 版本目录 · 传输请求</p>
+      </div>
+      <div class="controls">
+        <div class="seg" id="range" role="group" aria-label="时间范围">
+          <button type="button" data-days="7">7 天</button>
+          <button type="button" data-days="30" class="active">30 天</button>
+          <button type="button" data-days="90">90 天</button>
+        </div>
+        <button type="button" class="refresh" id="refresh" aria-label="刷新数据" title="刷新数据">&#8635;</button>
+      </div>
+    </header>
+
+    <section class="kpis" id="kpis" aria-live="polite"></section>
+
+    <section class="grid">
+      <article class="card">
+        <header class="card-head">
+          <h2>每日用户操作</h2>
+          <span class="hint">变更文档条数</span>
+        </header>
+        <div class="chart" id="chart-user-ops"></div>
+      </article>
+      <article class="card">
+        <header class="card-head">
+          <h2>每日开发活动</h2>
+          <span class="hint">对象版本 / 传输请求</span>
+        </header>
+        <div class="chart" id="chart-dev"></div>
+      </article>
+      <article class="card">
+        <header class="card-head">
+          <h2>热门事务码</h2>
+          <span class="hint">Top 6</span>
+        </header>
+        <ol class="rank" id="top-tcodes"></ol>
+      </article>
+      <article class="card">
+        <header class="card-head">
+          <h2>对象类型</h2>
+          <span class="hint">Top 6</span>
+        </header>
+        <ol class="rank" id="top-objects"></ol>
+      </article>
+    </section>
+
+    <footer class="foot" id="foot"></footer>
+  </main>
+  <script src="/sap/bc/zdma_01_stats/app.js"></script>
+</body>
+</html>
