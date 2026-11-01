@@ -25,7 +25,7 @@ abap doctor --json
 
 | 项目 | 状态 | 说明 |
 |---|---|---|
-| [变更请求工作台（CRW）](apps/change-request-workbench/README.md) | M0（规划与验证中） | 变更请求全流程工作台；产品前缀 `ZCRW_`，包 `$CRW`；规划见 [docs/change-request-workbench-plan.md](docs/change-request-workbench-plan.md) |
+| [变更请求工作台（CRW）](apps/change-request-workbench/README.md) | M1（数据模型 + 服务骨架） | 变更请求全流程工作台；产品前缀 `ZCRW_`，包 `$CRW`；规划见 [docs/change-request-workbench-plan.md](docs/change-request-workbench-plan.md) |
 
 ## 仓库结构
 

@@ -1,6 +1,6 @@
 # 变更请求工作台（CRW）
 
-> 状态：M1（数据模型 + 号段 + 消息类已建；服务/页面待做）。
+> 状态：M1（数据模型 + 服务骨架已建；CRUD/API/页面待做）。
 > 这是**真实应用**，不是 demo；不套用 demo 的 `DMA` 命名与编号，契约见仓库 [`AGENTS.md`](../../AGENTS.md) §4A。
 > 产品规划与决策记录：[docs/change-request-workbench-plan.md](../../docs/change-request-workbench-plan.md)。
 
@@ -21,8 +21,16 @@
 - **写路径**：abap-cli 2.0.0 原生支持 `$` 前缀本地包免 transport；`$CRW` probe 验证通过：create → check syntax → push → run（`CRW_M0_OK`）→ delete（无 `--tr`）。
 - **M0 已验证**：类 probe、DDIC TABL probe、`/ui2/cl_json` + ABAP Unit（testclasses sidecar）、CTS 只读（E070/E071/E07T）。
 - **NROB / MSAG 已修复**（本地 CLI 修复，见规划文档 B.4）：`ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK` 三个号段已建；`ZCRW_MSG` 消息类已建（T100 8 条）。
-- **M1 数据模型**：13 张表（`ZCRW_*`）、3 个号段、消息类、2 个锁对象（`EZCRW_REQ` / `EZCRW_CD`）已在 `$CRW` 建好；AFF 在 `src/`，表均 0 行。
-- 尚未创建任何 `ZCRW_*` 业务数据（表均为空）。
+- **M1 数据模型**：13 张表（`ZCRW_*`）、3 个号段、消息类、2 个锁对象（`EZCRW_REQ` / `EZCRW_CD`）已在 `$CRW` 建好；AFF 在 `src/`。
+- **M1 服务骨架**：`ZCL_CRW_UTIL`（时间 / GUID / 可读 ID）、`ZCL_CRW_NUMBER`（号段区间 + 取号）、`ZCL_CRW_BOOTSTRAP`（幂等初始化）、`ZCL_CRW_SELFCHECK`（只读自检）、`ZCX_CRW_ERROR`；`abap test ZCL_CRW_UTIL` 3/3 passed。
+- **当前数据**：`ZCRW_VERSION` 1 行（CRW 1.0.0）、`ZCRW_APPR_CFG` 1 行（STD_DEFAULT）、`ZCRW_ROLE` 1 行（当前用户 ADMIN）、`NRIV` 3 行（三个号段区间）；无业务数据。
+
+## 安装与初始化
+
+1. `abap deploy status --json`：确认 ICF current（过期则 `abap deploy --yes --json`）。
+2. `abap run ZCL_CRW_BOOTSTRAP --json`：幂等；创建号段区间 + 种子数据，期望 `CRW_BOOTSTRAP_OK`。
+3. `abap run ZCL_CRW_SELFCHECK --json`：只读；期望 `CRW_SELFCHECK_OK tables=13 ...`。
+4. `abap test ZCL_CRW_UTIL --json`：单元测试；期望 `passed=3`。
 
 ## 目录
 
@@ -44,7 +52,7 @@ apps/change-request-workbench/
 
 ## 下一步
 
-1. 提交/同步本地 CLI 修复（NROB 空 subType、MSAG ADT→ICF fallback）；升级后重新 `abap deploy --yes`。
-2. 冻结 v1 API 契约与状态机，写 `docs/architecture.md`、`docs/workflow.md`。
-3. 开始 M1 服务与骨架：bootstrap（配置种子 + 号段区间）、selfcheck、CR/CD/Task/SubTask CRUD、API 骨架、ICF 节点 + MIME + 前端首页。
-4. 补 M0 剩余：ICF 认证、事务码、MIME/SPA fallback（随 M1 前端一起验证）。
+1. 完成 CR / CD / Task 服务类与 `/api/v1` JSON API 骨架。
+2. 写 `docs/architecture.md`、`docs/workflow.md`，冻结 v1 契约。
+3. ICF 节点 + MIME + 前端首页（同时验证 MIME / SPA fallback / ICF 认证）。
+4. 事务码 / TRAN 与剩余 M0 项。
