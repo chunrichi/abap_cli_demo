@@ -123,6 +123,10 @@ CLASS zcl_crw_api_me IMPLEMENTATION.
     DATA lt_history TYPE zcl_crw_audit=>tt_history.
     DATA lv_display TYPE string.
     DATA lv_title TYPE string.
+    DATA lv_sched_prefix TYPE string.
+    DATA lv_sched_type TYPE zcrw_sched-object_type.
+    DATA lv_sched_object TYPE zcrw_sched-object_id.
+    DATA lv_sched_note TYPE zcrw_sched-note.
 
     lv_user = io_ctx->mv_user.
     lv_assignee = io_ctx->mv_user.
@@ -158,15 +162,36 @@ CLASS zcl_crw_api_me IMPLEMENTATION.
     lt_history = zcl_crw_audit=>recent( iv_size = 20 ).
     LOOP AT lt_history ASSIGNING FIELD-SYMBOL(<ls_hist>).
       lv_title = ''.
+      lv_display = zcl_crw_api_map=>display_id( iv_object_type = CONV string( <ls_hist>-object_type )
+                                                iv_object_id   = CONV string( <ls_hist>-object_id ) ).
+
       IF <ls_hist>-object_type = 'REQ'.
         SELECT SINGLE title FROM zcrw_req WHERE req_id = @<ls_hist>-object_id INTO @lv_title.
       ELSEIF <ls_hist>-object_type = 'CD'.
         SELECT SINGLE title FROM zcrw_cd WHERE cd_id = @<ls_hist>-object_id INTO @lv_title.
       ELSEIF <ls_hist>-object_type = 'TASK'.
         SELECT SINGLE title FROM zcrw_task WHERE task_id = @<ls_hist>-object_id INTO @lv_title.
+      ELSEIF <ls_hist>-object_type = 'TR'.
+        SELECT SINGLE description FROM zcrw_tr WHERE trkorr = @<ls_hist>-object_id INTO @lv_title.
+        lv_display = <ls_hist>-object_id.
+      ELSEIF <ls_hist>-object_type = 'SCHED'.
+*       ZCRW_HIST.OBJECT_ID is CHAR20 while a schedule id is a 32 char UUID.
+        lv_sched_prefix = CONV string( <ls_hist>-object_id ) && '%'.
+        SELECT SINGLE object_type, object_id, note FROM zcrw_sched
+          WHERE sched_id LIKE @lv_sched_prefix
+          INTO (@lv_sched_type, @lv_sched_object, @lv_sched_note).
+        IF lv_sched_type = 'CD'.
+          lv_display = zcl_crw_api_map=>display_id( iv_object_type = 'CD'
+                                                    iv_object_id   = CONV string( lv_sched_object ) ).
+          SELECT SINGLE title FROM zcrw_cd WHERE cd_id = @lv_sched_object INTO @lv_title.
+        ELSE.
+          lv_display = lv_sched_object.
+        ENDIF.
+        IF lv_title IS INITIAL.
+          lv_title = lv_sched_note.
+        ENDIF.
       ENDIF.
-      lv_display = zcl_crw_api_map=>display_id( iv_object_type = CONV string( <ls_hist>-object_type )
-                                                iv_object_id   = CONV string( <ls_hist>-object_id ) ).
+
       APPEND VALUE #( object_type = <ls_hist>-object_type
                       object_id   = <ls_hist>-object_id
                       display_id  = lv_display

@@ -208,7 +208,19 @@ CTS Adapter（只读）── E070 / E071 / E07T / TMS 队列
 | `ZCL_CRW_API_TASK` | CLAS | Task 控制器 | 列表 / 详情 / PATCH / 动作 / subtasks | 已实现 |
 | `ZCL_CRW_API_APPROVAL` | CLAS | 审批控制器 | 待我审批 / 步骤 / 决策 | 已实现 |
 | `ZCL_CRW_TEST_DATA` | CLAS + classrun | 测试数据复位 | 清业务表 + 种子审批角色；输出 `CRW_TEST_DATA_RESET rows=…` | 已实现（开发/安装用） |
-| `ZCRW_APP` | HTTP（SICF） | `/sap/bc/zcrw` ICF 节点 | `handlerClass = ZCL_CRW_HTTP_HANDLER` | 已创建（TADIR SICF） |
+| `ZCRW_APP` | HTTP（SICF） | `/sap/bc/zcrw` ICF 节点 | `handlerClass = ZCL_CRW_HTTP_HANDLER`；静态资源来自 MIME `/zcrw` | 已创建（TADIR SICF） |
+| `ZIF_CRW_CTS_READER` | INTF | CTS 只读读取契约 | E070 / E071 / E07T / TMSBUFFER | 已实现 |
+| `ZCL_CRW_CTS_ADAPTER` | CLAS | CTS 只读适配器（`ZIF_CRW_CTS_READER`） | `get_header` / `get_description` / `get_objects` / `get_import_state` | 已实现（D4：不做 live 导入验证） |
+| `ZCL_CRW_TRANSPORT_SVC` | CLAS | 传输关联与快照 | link / unlink / mark-detached / sync / list；`DUPLICATE_LINK`、已释放不可解绑 | 已实现 |
+| `ZCL_CRW_API_TRANSPORT` | CLAS | 传输控制器 | `/transports*` | 已实现 |
+| `ZCL_CRW_API_SCHEDULE` | CLAS | 导入计划控制器 | `/schedules`、`/schedules/{id}/actions` | 已实现 |
+| `ZCL_CRW_REPORT_SVC` | CLAS | 报表聚合（变更/时长/逾期/ToC/CSV） | 只读 SQL + 历史时间差 | 已实现 |
+| `ZCL_CRW_API_REPORT` | CLAS | 报表控制器 | `/reports/*`、`/reports/export.csv` | 已实现 |
+| `ZCL_CRW_API_CONFIG` | CLAS | 配置只读查看 | cycles / roles / approval-matrix / number-ranges | 已实现（编辑 P2） |
+| `ZCL_CRW_MIGRATION` | CLAS + classrun | 版本迁移入口 | 幂等委托 bootstrap；`CRW_MIGRATION_OK from=… to=…` | 已实现（单步前向） |
+| `ZCL_CRW_DEMO_DATA` | CLAS + classrun | 演示数据（安装/截图/联调） | 假用户拒绝真实数据；`CRW_DEMO_DATA_OK …` | 已实现（开发步骤） |
+| `ZCRW_START` | PROG | 事务码入口报表 | 运行时拼系统 URL + ICF 路径，只展示不写死地址 | 已实现 |
+| `ZCRW` | TRAN | 报表事务 | `reportTransaction` → `ZCRW_START` 1000 | 已创建（`abap tcode` 可解析） |
 
 **实测口径（2026-11-01）**：health/me/list/create/detail/action 经真实 ICF HTTP 走通；错误映射实测 400/403/404/409；未登录由 ICF 标准登录过程返回 401（响应体为登录页，A1/D21 实测结论）；ICF 节点创建后需再 `abap activate ZCL_CRW_HTTP_HANDLER` 一次以刷新类运行时缓存。
 
@@ -685,7 +697,8 @@ ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,
 | 路径 | `/sap/bc/zcrw` |
 | 处理器类 | `ZCL_CRW_HTTP_HANDLER`（实现 `IF_HTTP_EXTENSION`） |
 | 创建方式 | AFF `create HTTP --file`（仓库内保留规范 AFF；执行时生成带顶层 `name` 的临时副本） |
-| 状态 | **已创建（2026-11-01）**：HTTP 200 JSON 实测通过；创建后需再激活一次 handler 类以刷新 ICF 类缓存 |
+| 状态 | **已创建并实测（2026-11-01）**：`GET /`、静态资产、SPA fallback、`GET /api/v1/*` 均 200；无尾斜杠 `/sap/bc/zcrw` 302 到带斜杠 URL；未登录由 ICF 标准登录过程返回 401 |
+| MIME | 根 `/zcrw` + 子目录 `/zcrw/js`、`/zcrw/js/components`、`/zcrw/js/pages`；`mime push` 会把目录内容**扁平**上传到 `--root`，因此按层级分别 push（见 runbook S9） |
 | 认证 | SAP 登录（SSO / 表单 / Basic，按客户环境）；应用不保存密码 |
 | 会话 | 由 SAP 控制超时 |
 

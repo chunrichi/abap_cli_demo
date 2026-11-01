@@ -22,6 +22,8 @@ CLASS zcl_crw_api_context DEFINITION PUBLIC FINAL CREATE PUBLIC.
     DATA mv_response     TYPE string.
     DATA mv_raw          TYPE xstring.
     DATA mv_is_raw       TYPE abap_bool.
+    DATA mv_is_text      TYPE abap_bool.
+    DATA mv_content_disposition TYPE string.
 
     METHODS add_param
       IMPORTING iv_name  TYPE string
@@ -51,6 +53,11 @@ CLASS zcl_crw_api_context DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     METHODS set_json
       IMPORTING iv_data_json TYPE string.
+
+    METHODS set_text
+      IMPORTING iv_text         TYPE string
+                iv_content_type TYPE string
+                iv_filename     TYPE string DEFAULT ''.
 
     METHODS set_raw
       IMPORTING iv_data         TYPE xstring
@@ -137,6 +144,17 @@ CLASS zcl_crw_api_context IMPLEMENTATION.
     mv_content_type = 'application/json; charset=utf-8'.
     mv_is_raw = abap_false.
     mv_status = COND #( WHEN mv_status IS INITIAL THEN 200 ELSE mv_status ).
+  ENDMETHOD.
+
+  METHOD set_text.
+    mv_response   = iv_text.
+    mv_content_type = iv_content_type.
+    mv_is_text    = abap_true.
+    mv_is_raw     = abap_false.
+    mv_status     = COND #( WHEN mv_status IS INITIAL THEN 200 ELSE mv_status ).
+    IF iv_filename IS NOT INITIAL.
+      mv_content_disposition = |attachment; filename="{ iv_filename }"|.
+    ENDIF.
   ENDMETHOD.
 
   METHOD set_raw.

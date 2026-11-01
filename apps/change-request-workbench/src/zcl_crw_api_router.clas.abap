@@ -178,6 +178,14 @@ CLASS zcl_crw_api_router IMPLEMENTATION.
         zcl_crw_api_task=>dispatch( io_ctx = io_ctx it_segments = lt_clean ).
       WHEN 'approvals'.
         zcl_crw_api_approval=>dispatch( io_ctx = io_ctx it_segments = lt_clean ).
+      WHEN 'transports'.
+        zcl_crw_api_transport=>dispatch( io_ctx = io_ctx it_segments = lt_clean ).
+      WHEN 'schedules'.
+        zcl_crw_api_schedule=>dispatch( io_ctx = io_ctx it_segments = lt_clean ).
+      WHEN 'reports'.
+        zcl_crw_api_report=>dispatch( io_ctx = io_ctx it_segments = lt_clean ).
+      WHEN 'config'.
+        zcl_crw_api_config=>dispatch( io_ctx = io_ctx it_segments = lt_clean ).
       WHEN OTHERS.
         RAISE EXCEPTION TYPE zcx_crw_error
           EXPORTING iv_code = 'NOT_FOUND' iv_text = |Unknown resource { lv_resource }|.
@@ -193,6 +201,12 @@ CLASS zcl_crw_api_router IMPLEMENTATION.
     IF io_ctx->mv_is_raw = abap_true.
       io_server->response->set_header_field( name = 'Content-Type' value = io_ctx->mv_content_type ).
       io_server->response->set_data( data = io_ctx->mv_raw ).
+    ELSEIF io_ctx->mv_is_text = abap_true.
+      io_server->response->set_header_field( name = 'Content-Type' value = io_ctx->mv_content_type ).
+      IF io_ctx->mv_content_disposition IS NOT INITIAL.
+        io_server->response->set_header_field( name = 'Content-Disposition' value = io_ctx->mv_content_disposition ).
+      ENDIF.
+      io_server->response->set_cdata( data = io_ctx->mv_response ).
     ELSE.
       io_server->response->set_header_field( name = 'Content-Type' value = 'application/json; charset=utf-8' ).
       io_server->response->set_cdata( data = io_ctx->mv_response ).

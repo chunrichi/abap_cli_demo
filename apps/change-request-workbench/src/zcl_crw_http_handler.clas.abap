@@ -38,6 +38,15 @@ CLASS zcl_crw_http_handler IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    IF lv_path IS INITIAL.
+      DATA(lv_uri) = server->request->get_header_field( '~request_uri' ).
+      IF lv_uri IS NOT INITIAL AND substring( val = lv_uri off = strlen( lv_uri ) - 1 ) <> '/'.
+        server->response->set_status( code = 302 reason = 'Found' ).
+        server->response->set_header_field( name = 'Location' value = |{ lv_uri }/| ).
+        RETURN.
+      ENDIF.
+    ENDIF.
+
     IF lv_method <> 'GET'.
       respond_json( io_server = server
                     iv_status = 405

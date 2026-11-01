@@ -1,0 +1,33 @@
+{
+  "formatVersion": "1",
+  "header": {
+    "description": "CRW change request workbench launcher",
+    "originalLanguage": "EN"
+  },
+  "generalInformation": {
+    "transactionType": "reportTransaction",
+    "reportTransaction": {
+      "reportName": "ZCRW_START",
+      "reportDynnr": "1000"
+    }
+  },
+  "userInterface": {
+    "uiAttributes": {
+      "inheritanceMode": "active",
+      "pervasiveMode": "disabled",
+      "win32Mode": "notSupported"
+    }
+  },
+  "authorizations": {
+    "authorizationDefaults": {
+      "maintenanceMode": "manual",
+      "defaultValuesRequired": "yes",
+      "authObjects": [
+        {
+          "authObjectName": "S_TCODE",
+          "maintenanceStatus": "noDefault"
+        }
+      ]
+    }
+  }
+}

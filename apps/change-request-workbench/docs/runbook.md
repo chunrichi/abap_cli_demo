@@ -191,33 +191,44 @@ abap create HTTP ZCRW_APP --file tmp/zcrw_app.create.http.json --package '$CRW' 
 3. 访问 `<host>/sap/bc/zcrw/api/v1/me` → 当前用户、角色、`admin`、`version=1.1.0`。
 4. 未携带登录会话访问 `/api/v1/*` 返回 401（ICF 标准登录过程接管，响应体为登录页而非 JSON；A1/D21 实测口径）。
 
-### 2.9 S8 事务码 `ZCRW`（参数事务，实测后回写）
+### 2.9 S8 事务码 `ZCRW`（报表事务，已实测）
 
-入口：参数事务 `ZCRW` → 报表 `ZCRW_START` 打开 ICF 节点相对路径 `/sap/bc/zcrw`（不写主机名）。
+入口：报表事务 `ZCRW` → 报表 `ZCRW_START` 选择屏幕 1000。报表运行时用 `cl_abap_context_info=>get_system_url( )` 拼出 `<system-url>/sap/bc/zcrw/` 并展示，不写死任何主机名/端口；用户复制地址或按回车执行后打开浏览器并显示地址。
 
 ```bash
 # 1) 报表 ZCRW_START（PROG）
-abap create PROG ZCRW_START --package '$CRW' --description 'CRW workbench launcher' --yes --json
+abap create PROG ZCRW_START --package '$CRW' --description 'CRW workbench launcher' --no-pull --yes --json
 abap push src/zcrw_start.prog.abap --yes --json
 
-# 2) 事务码 ZCRW（AFF TRAN；参数事务的 URL 参数 AFF 无对应类型）
-abap create TRAN ZCRW --file <TRAN AFF 文件> --package '$CRW' --description 'CRW workbench' --yes --json
+# 2) 事务码 ZCRW（AFF TRAN，reportTransaction → ZCRW_START / 1000）
+abap validate:aff src/zcrw.tran.json --json
+node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync("src/zcrw.tran.json","utf8"));fs.writeFileSync("tmp/zcrw.create.tran.json",JSON.stringify({name:"ZCRW",...d},null,2))'
+abap create TRAN ZCRW --file tmp/zcrw.create.tran.json --package '$CRW' --description 'CRW workbench launcher' --yes --json
 ```
 
-期望：`status=success`；只读核对 `abap tcode ZCRW --json` 能解析到入口程序 `ZCRW_START`。
-说明：AFF 无 URL 类型 TRAN，参数事务的跳转参数需在 SAP GUI（SE93）人工确认/补录，仅使用相对路径 `/sap/bc/zcrw`，不记录主机名；M1 实测后把 `<TRAN AFF 文件>` 与参数写法回写本节。
-失败：`OBJECT_EXISTS` → `pull` 后 `push`，或删除重建；`VALIDATION_ERROR` → 检查 AFF 文件与占位符是否替换。
+期望：`create TRAN` 为 `status=success`；只读核对 `abap tcode ZCRW --json` → `data.target.program=ZCRW_START`、`data.entry.screen=1000`（`resolutionState=entry_only` 属正常：报表事务只揭示入口）。
+说明：AFF 的 `reportTransaction` 字段为 `reportName` / `reportDynnr`；`create` 需要顶层 `name` 信封字段，故用临时副本。选择屏幕不使用 textpool 文本元素（abap-cli 2.0.0 不支持 textpool 写入），全部用字面量/参数默认值。
 
-### 2.10 S9 创建 MIME 根 `/zcrw` 并上传前端资产
+### 2.10 S9 创建 MIME 结构并上传前端资产（已实测）
+
+注意：`abap mime push <dir>` 会把该目录下的文件**扁平**上传到 `--root`，不保留子目录。因此先建目录，再按层级分别 push；**不要**直接 `mime push src/mime --root /zcrw`（会把 `js/` 内文件落到根目录）。
 
 ```bash
-abap mime push src/mime --root /zcrw --dry-run --json   # 先预览清单（不写 SAP）
-abap mime create /zcrw --package '$CRW' --description 'CRW workbench assets' --yes --json
-abap mime push src/mime --root /zcrw --yes --json
+abap mime create /zcrw                 --package '$CRW' --description 'CRW workbench assets' --yes --json
+abap mime create /zcrw/js              --package '$CRW' --description 'CRW workbench assets' --yes --json
+abap mime create /zcrw/js/components   --package '$CRW' --description 'CRW workbench assets' --yes --json
+abap mime create /zcrw/js/pages        --package '$CRW' --description 'CRW workbench assets' --yes --json
+
+abap mime push src/mime/index.html  --root /zcrw --yes --json
+abap mime push src/mime/styles.css  --root /zcrw --yes --json
+for f in src/mime/js/*.js; do abap mime push "$f" --root /zcrw/js --yes --json; done
+abap mime push src/mime/js/components --root /zcrw/js/components --yes --json
+abap mime push src/mime/js/pages      --root /zcrw/js/pages      --yes --json
 ```
 
-期望：`create` 为 `data.action=created`；`push` 为 `data.uploaded=<n>`（与 `src/mime/` 文件数一致，M1 起 > 0）。
-失败：`OBJECT_EXISTS` → `abap mime delete /zcrw --recursive --yes --json` 后重试；`NOT_FOUND` → 检查 `create` 是否成功。
+期望：每次 `data.uploaded` 与推送文件数一致（根 2 + js 5 + components 5 + pages 15 = 27）。
+校验（只读）：登录后 `GET /sap/bc/zcrw/` 返回 `index.html`；`GET /sap/bc/zcrw/js/app.js`、`/js/api.js`、`/js/pages/dashboard.js` 返回 `application/javascript`；`GET /sap/bc/zcrw/requests/0000000001` 返回 `index.html`（SPA fallback）；`GET /sap/bc/zcrw` 返回 302 到带尾斜杠地址。
+失败：`uploaded=0` → 检查 `--root` 是否存在；某文件 404 → 删除后重推该文件（`abap mime delete /zcrw/js/api.js --yes` 再 push）；首次推送偶发部分文件未落地，按文件重推即可。
 
 ### 2.11 S10–S12 初始化、迁移、自检
 
@@ -232,7 +243,8 @@ abap run ZCL_CRW_SELFCHECK --json
 
 期望：
 - bootstrap：`data.output` 含 `CRW_BOOTSTRAP_OK intervals=3 config=<n>`（首次安装：3 区间 + 版本/审批矩阵/角色种子；1.1.0 起种子含 `REQ/STD` 与 `CD/STD` 两条矩阵步骤和 `ADMIN` + `CHANGE_MANAGER` 角色）；再次运行为 `intervals=0 config=0`（幂等）。
-- migration：`status=success`、`data.exitCode=0`；输出标记与版本号在实现时冻结并回写本节（交付前跳过）。
+- migration：`status=success`、`data.exitCode=0`；`data.output` 含 `CRW_MIGRATION_OK from=1.1.0 to=1.1.0`（单步前向；bootstrap 幂等，重复运行不重复写种子）。
+- 演示/测试数据（仅开发与截图，不属安装必做）：`abap run ZCL_CRW_DEMO_DATA --json` → `CRW_DEMO_DATA_OK requests=3 cds=1 tasks=2 schedules=1`；`abap run ZCL_CRW_TEST_DATA --json` → `CRW_TEST_DATA_RESET rows=<n>`。
 - selfcheck：`data.output` 含 `CRW_SELFCHECK_OK tables=13 rows=<n> intervals=3 version=<v> messages=8 roles=<n> approvals=<n> icf=OK cts=OK`（version 取最新版本行，1.1.0；ICF 检查基于 `TADIR` 的 `SICF` 行，CTS 读取失败降级为 `cts=DEGRADED`）。`CRW_SELFCHECK_FAIL` → 按输出定位缺失项（`intervals=` / `version-missing` / `icf-missing` 等），回对应安装步骤。
 
 ### 2.12 安装完成判据
@@ -489,8 +501,10 @@ done
 | 消息类 | `abap select --table T100 --where "ARBGB = 'ZCRW_MSG'" --count-only --json` | `data.count=8` |
 | 锁对象 | `abap select --table DD25L --where "VIEWNAME LIKE 'EZCRW%'" --count-only --json` | `data.count=2` |
 | 版本 | `abap select --table ZCRW_VERSION --fields COMPONENT,VERSION_NO,APPLIED_AT --json` | 版本与 `/health` 一致 |
-| ICF 节点 | `abap select --table ICFSERVICE --where "ICF_NAME = 'ZCRW_APP'" --count-only --json` | `data.count=1` |
-| 事务码 | `abap tcode ZCRW --json` | 解析到入口程序 `ZCRW_START` |
+| ICF 节点 | `abap select --table TADIR --where "OBJ_NAME LIKE 'ZCRW%'" --json` | 含 `OBJECT=SICF` 行 |
+| 事务码 | `abap tcode ZCRW --json` | `data.target.program=ZCRW_START`、`entry.screen=1000` |
+| 传输适配 | `abap select --table E070 --limit 1 --json` | 只读可访问（失败按 D4 降级，不阻塞） |
+| 报表 | `abap run ZCL_CRW_SELFCHECK --json` | `icf=OK cts=OK` |
 | 健康端点 | 浏览器登录后 GET 相对路径 `/sap/bc/zcrw/api/v1/health` | JSON 200；返回 `status` 与 `components`（A10 枚举） |
 | 页面 / hash 路由 | 浏览器打开 `/sap/bc/zcrw/`、`/sap/bc/zcrw/#/<route>`（如 `#/requests`）并刷新 | 页面正常渲染、刷新不 404（SPA fallback） |
 | dump | `abap dumps --json` | 近期无 CRW 相关 dump（人工判断） |

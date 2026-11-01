@@ -223,7 +223,7 @@ CLASS zcl_crw_api_map IMPLEMENTATION.
     rs_dto-retrofit_state      = is_row-retrofit_state.
     rs_dto-sync_state          = is_row-sync_state.
     rs_dto-description         = is_row-description.
-    rs_dto-linked              = abap_true.
+    rs_dto-linked              = xsdbool( is_row-cd_id IS NOT INITIAL ).
     rs_dto-degraded            = xsdbool( is_row-sync_state = 'ERROR' ).
   ENDMETHOD.
 
