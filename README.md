@@ -25,13 +25,14 @@ abap doctor --json
 
 | 项目 | 状态 | 说明 |
 |---|---|---|
-| [变更请求工作台（CRW）](apps/change-request-workbench/README.md) | M1（数据模型 + 服务骨架） | 变更请求全流程工作台；产品前缀 `ZCRW_`，包 `$CRW`；规划见 [docs/change-request-workbench-plan.md](docs/change-request-workbench-plan.md) |
+| [变更请求工作台（CRW）](apps/change-request-workbench/README.md) | M4（M1–M4 已交付） | 变更请求全流程工作台；产品前缀 `ZCRW_`，包 `$CRW`；状态与验证见 [应用 README](apps/change-request-workbench/README.md)，安装见 [runbook](apps/change-request-workbench/docs/runbook.md)，规划见 [docs/change-request-workbench-plan.md](docs/change-request-workbench-plan.md) |
 
 ## 仓库结构
 
 - [`AGENTS.md`](AGENTS.md)：仓库合约（命名、目录、验证、安全边界）
 - [`docs/demo-library-plan.md`](docs/demo-library-plan.md)：示例清单与路线图
-- [`docs/change-request-workbench-plan.md`](docs/change-request-workbench-plan.md)：变更请求工作台（应用型项目）规划草案
+- [`docs/change-request-workbench-plan.md`](docs/change-request-workbench-plan.md)：变更请求工作台（应用型项目）规划
+- [`docs/handoff-next-session.md`](docs/handoff-next-session.md)：下一任务交接（GitHub 发布与提交/分支/PR 规则）
 - [`demos/`](demos/)：每个 demo 一个目录
 - [`apps/`](apps/)：应用型项目（非 demo），当前为变更请求工作台（CRW）
 - [`.agents/skills/`](.agents/skills/)：abap-cli 技能（DSH 项目级技能根）
