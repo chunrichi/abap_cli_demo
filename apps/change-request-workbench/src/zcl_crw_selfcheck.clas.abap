@@ -4,7 +4,7 @@ CLASS zcl_crw_selfcheck DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PRIVATE SECTION.
     CLASS-METHODS count_table
-      IMPORTING iv_table TYPE tabname
+      IMPORTING iv_table        TYPE tabname
       RETURNING VALUE(rv_count) TYPE i.
 ENDCLASS.
 
@@ -17,6 +17,10 @@ CLASS zcl_crw_selfcheck IMPLEMENTATION.
     DATA lv_messages  TYPE i.
     DATA lv_roles     TYPE i.
     DATA lv_approvals TYPE i.
+    DATA lv_icf       TYPE i.
+    DATA lv_cts       TYPE i.
+    DATA lv_icf_state TYPE string.
+    DATA lv_cts_state TYPE string.
     DATA lv_failures  TYPE string.
 
     lt_tables = VALUE #( ( 'ZCRW_REQ' ) ( 'ZCRW_CD' ) ( 'ZCRW_TASK' ) ( 'ZCRW_TR' )
@@ -24,12 +28,12 @@ CLASS zcl_crw_selfcheck IMPLEMENTATION.
                          ( 'ZCRW_CYCLE' ) ( 'ZCRW_ROLE' ) ( 'ZCRW_APPR_CFG' )
                          ( 'ZCRW_VERSION' ) ( 'ZCRW_LOG' ) ).
 
-    " Every application table must be readable.
+*   Every application table must be readable.
     LOOP AT lt_tables ASSIGNING FIELD-SYMBOL(<lv_table>).
       lv_rows = lv_rows + count_table( <lv_table> ).
     ENDLOOP.
 
-    " Number range intervals for all three business objects.
+*   Number range intervals for all three business objects.
     SELECT COUNT(*)
       FROM nriv
       WHERE object    IN ( 'ZCRW_REQ', 'ZCRW_CD', 'ZCRW_TASK' )
@@ -37,8 +41,8 @@ CLASS zcl_crw_selfcheck IMPLEMENTATION.
         AND nrrangenr = '01'
       INTO @lv_intervals.
 
-    " Bootstrap markers.
-    SELECT SINGLE version_no
+*   Latest component version and seed configuration.
+    SELECT MAX( version_no )
       FROM zcrw_version
       WHERE component = 'CRW'
       INTO @lv_version.
@@ -55,8 +59,27 @@ CLASS zcl_crw_selfcheck IMPLEMENTATION.
 
     SELECT COUNT(*)
       FROM zcrw_appr_cfg
-      WHERE profile_id = 'STD_DEFAULT'
       INTO @lv_approvals.
+
+*   ICF node must exist: the SICF object is registered in TADIR.
+    SELECT COUNT(*)
+      FROM tadir
+      WHERE pgmid = 'R3TR' AND object = 'SICF' AND obj_name LIKE 'ZCRW%'
+      INTO @lv_icf.
+
+    IF lv_icf > 0.
+      lv_icf_state = 'OK'.
+    ELSE.
+      lv_icf_state = 'MISSING'.
+    ENDIF.
+
+*   CTS tables stay read-only; failures degrade but do not block the check.
+    TRY.
+        SELECT COUNT(*) FROM e070 INTO @lv_cts.
+        lv_cts_state = 'OK'.
+      CATCH cx_root.
+        lv_cts_state = 'DEGRADED'.
+    ENDTRY.
 
     IF lv_intervals <> 3.
       lv_failures = |{ lv_failures } intervals={ lv_intervals }|.
@@ -73,15 +96,23 @@ CLASS zcl_crw_selfcheck IMPLEMENTATION.
     IF lv_approvals = 0.
       lv_failures = |{ lv_failures } approval-missing|.
     ENDIF.
+    IF lv_icf = 0.
+      lv_failures = |{ lv_failures } icf-missing|.
+    ENDIF.
 
     IF lv_failures IS INITIAL.
-      out->write( |CRW_SELFCHECK_OK tables=13 rows={ lv_rows } intervals={ lv_intervals } version={ lv_version } messages={ lv_messages }| ).
+      out->write( |CRW_SELFCHECK_OK tables=13 rows={ lv_rows } intervals={ lv_intervals }| &&
+                  | version={ lv_version } messages={ lv_messages } roles={ lv_roles }| &&
+                  | approvals={ lv_approvals } icf={ lv_icf_state } cts={ lv_cts_state }| ).
     ELSE.
       out->write( |CRW_SELFCHECK_FAIL{ lv_failures }| ).
     ENDIF.
   ENDMETHOD.
 
   METHOD count_table.
-    SELECT COUNT(*) FROM (iv_table) INTO @rv_count.
+    DATA lv_table TYPE tabname.
+
+    lv_table = iv_table.
+    SELECT COUNT(*) FROM (lv_table) INTO @rv_count.
   ENDMETHOD.
 ENDCLASS.

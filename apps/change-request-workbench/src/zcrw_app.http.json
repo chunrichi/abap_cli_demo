@@ -1,0 +1,11 @@
+{
+  "formatVersion": "1",
+  "header": {
+    "description": "CRW change request workbench API and SPA",
+    "originalLanguage": "EN"
+  },
+  "generalInformation": {
+    "handlerClass": "ZCL_CRW_HTTP_HANDLER",
+    "servicePath": "/sap/bc/zcrw"
+  }
+}

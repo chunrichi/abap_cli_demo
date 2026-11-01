@@ -181,8 +181,15 @@ abap create HTTP ZCRW_APP --file tmp/zcrw_app.create.http.json --package '$CRW' 
   --description 'CRW workbench ICF node' --yes --json
 ```
 
-期望：`data.action=created`（节点已存在时为 `updated`，属幂等更新）；`abap select --table ICFSERVICE --where "ICF_NAME = 'ZCRW_APP'" --count-only --json` 为 `data.count=1`。
+期望：`data.action=created`；节点在 `TADIR` 中登记为 `PGMID=R3TR / OBJECT=SICF / OBJ_NAME=ZCRW…`（只读核对：`abap select --table TADIR --where "OBJ_NAME LIKE 'ZCRW%'" --json`，其中含 `SICF` 行）。
 失败：`VALIDATION_ERROR Missing required field: name` → 临时副本缺顶层 `name`；`HTTP_CREATE_FAILED` → handler 未激活、`servicePath` 冲突或父节点 `/sap/bc` 不存在。
+节点创建后访问返回 500 `Class interface changed at runtime` → 对 handler 类再执行一次 `abap activate ZCL_CRW_HTTP_HANDLER --yes --json` 后重试（ICF 的类运行时缓存）。
+
+安装后校验（只读，`<host>` 为运行环境的系统地址，不写入仓库）：
+1. `abap run ZCL_CRW_JSON --json` → `CRW_JSON_OK`（JSON 序列化 / camelCase 自检）。
+2. 浏览器登录后访问 `<host>/sap/bc/zcrw/api/v1/health` → `status=success`、`data.status=ok`、`components.icf=ok`。
+3. 访问 `<host>/sap/bc/zcrw/api/v1/me` → 当前用户、角色、`admin`、`version=1.1.0`。
+4. 未携带登录会话访问 `/api/v1/*` 返回 401（ICF 标准登录过程接管，响应体为登录页而非 JSON；A1/D21 实测口径）。
 
 ### 2.9 S8 事务码 `ZCRW`（参数事务，实测后回写）
 
@@ -224,9 +231,9 @@ abap run ZCL_CRW_SELFCHECK --json
 ```
 
 期望：
-- bootstrap：`data.output` 含 `CRW_BOOTSTRAP_OK intervals=3 config=<n>`（首次创建 3 个区间；`config` 为种子行数，M1 为 3，M2 按 W6 增加 CD/STD 步骤后相应增加）；再次运行为 `intervals=0 config=0`（幂等）。
+- bootstrap：`data.output` 含 `CRW_BOOTSTRAP_OK intervals=3 config=<n>`（首次安装：3 区间 + 版本/审批矩阵/角色种子；1.1.0 起种子含 `REQ/STD` 与 `CD/STD` 两条矩阵步骤和 `ADMIN` + `CHANGE_MANAGER` 角色）；再次运行为 `intervals=0 config=0`（幂等）。
 - migration：`status=success`、`data.exitCode=0`；输出标记与版本号在实现时冻结并回写本节（交付前跳过）。
-- selfcheck：`data.output` 含 `CRW_SELFCHECK_OK tables=13 rows=<n> intervals=3 version=<v> messages=8`；M2 起追加 `icf=` / `cts=`（D23）。`CRW_SELFCHECK_FAIL` → 按输出定位缺失项，回对应安装步骤。
+- selfcheck：`data.output` 含 `CRW_SELFCHECK_OK tables=13 rows=<n> intervals=3 version=<v> messages=8 roles=<n> approvals=<n> icf=OK cts=OK`（version 取最新版本行，1.1.0；ICF 检查基于 `TADIR` 的 `SICF` 行，CTS 读取失败降级为 `cts=DEGRADED`）。`CRW_SELFCHECK_FAIL` → 按输出定位缺失项（`intervals=` / `version-missing` / `icf-missing` 等），回对应安装步骤。
 
 ### 2.12 安装完成判据
 

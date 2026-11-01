@@ -1,49 +1,72 @@
 # 变更请求工作台（CRW）
 
-> 状态：M1（数据模型 + 服务层 + 冒烟测试；API/页面待做）。
+> 状态：M1（数据模型 + 服务层 + `/api/v1` + ICF 节点已打通；MIME/SPA 与审批中心页面进行中）。
 > 这是**真实应用**，不是 demo；不套用 demo 的 `DMA` 命名与编号，契约见仓库 [`AGENTS.md`](../../AGENTS.md) §4A。
 > 产品规划与决策记录：[docs/change-request-workbench-plan.md](../../docs/change-request-workbench-plan.md)。
-> 架构与流程契约：[docs/architecture.md](docs/architecture.md)、[docs/workflow.md](docs/workflow.md)（v1，含待定项）。
-> 交接文档（新会话从这里开始）：[docs/handoff.md](docs/handoff.md)。
+> 架构与流程契约：[docs/architecture.md](docs/architecture.md)、[docs/workflow.md](docs/workflow.md)（v1，待定项已冻结）。
+> 安装 / 升级 / 运维：[docs/runbook.md](docs/runbook.md)。交接文档：[docs/handoff.md](docs/handoff.md)。
 
 在 SAP 内管理「变更请求 → 变更文档 → 任务/子任务 → 传输（含 ToC）→ 测试 → 计划导入 → 关闭」的全流程工作台，提供工作清单、详情、审批、传输视图、导入计划、仪表盘、报表与审计。
 
 ## 范围（D3 已确认）
 
-- CR → CD → Task → SubTask 层级。
+- CR → CD → Task → SubTask 层级；CR/CD/Task 状态机、审批矩阵、审计历史。
 - Transport 关联（DEV / ToC），CTS 只读展示（D4：实现但不做 live 验证）。
-- 导入计划（计划时间/窗口 + 日程 + 到点/逾期提醒，不执行 TMS 导入）。
+- 导入计划（计划时间 + 日程 + 到点/逾期提醒，不执行 TMS 导入）。
 - 标准变更 `STD` 一期；紧急 `URG` P1；管理 `ADM` P2。
 
 ## 当前状态（2026-11-01）
 
-- 预检：abap-cli 2.0.0；`abap doctor` ok；内置 ICF 2.0.0 current（已 `abap deploy --yes`）；active profile `test`（systemVersion 789）。
-- 包：`$CRW` 本地包已创建（super package `$TMP`，DLVUNIT LOCAL，无 transport）；AFF 记录见 `src/$crw.devc.json`。
-  重建命令（包不存在时）：`abap create DEVC '$CRW' --package '$TMP' --description 'Change Request Workbench local package' --package-type development --yes --json`。
-- **写路径**：abap-cli 2.0.0 原生支持 `$` 前缀本地包免 transport；`$CRW` probe 验证通过：create → check syntax → push → run（`CRW_M0_OK`）→ delete（无 `--tr`）。
-- **M0 已验证**：类 probe、DDIC TABL probe、`/ui2/cl_json` + ABAP Unit（testclasses sidecar）、CTS 只读（E070/E071/E07T）。
-- **NROB / MSAG 已修复**（本地 CLI 修复，见规划文档 B.4）：`ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK` 三个号段已建；`ZCRW_MSG` 消息类已建（T100 8 条）。
-- **M1 数据模型**：13 张表（`ZCRW_*`）、3 个号段、消息类、2 个锁对象（`EZCRW_REQ` / `EZCRW_CD`）已在 `$CRW` 建好；AFF 在 `src/`。
-- **M1 服务层**：`ZCL_CRW_UTIL`（时间 / GUID / 可读 ID）、`ZCL_CRW_NUMBER`（号段区间 + 取号）、`ZCL_CRW_AUDIT`（历史写入）、`ZCL_CRW_REQUEST_SVC` / `ZCL_CRW_CD_SVC` / `ZCL_CRW_TASK_SVC`（CR/CD/Task CRUD + 状态机 + 乐观锁 + 审计）、`ZCL_CRW_BOOTSTRAP`（幂等初始化）、`ZCL_CRW_SELFCHECK`（只读自检）、`ZCX_CRW_ERROR`。
-- **验证**：`abap run ZCL_CRW_M1_SMOKE --json` 端到端建 CR → CD → Task/SubTask、走状态机并自动清理；`abap test ZCL_CRW_UTIL` 4/4 passed。
-- **当前数据**：`ZCRW_VERSION` 1 行（CRW 1.0.0）、`ZCRW_APPR_CFG` 1 行（STD_DEFAULT）、`ZCRW_ROLE` 1 行（当前用户 ADMIN）、`NRIV` 3 行（三个号段区间）；无业务数据。
+- 预检：abap-cli 2.0.0；`abap doctor` ok；内置 ICF 2.0.0 current；active profile `test`（systemVersion 789）。
+- 包：`$CRW` 本地包（super package `$TMP`，DLVUNIT LOCAL，无 transport）；AFF 见 `src/$crw.devc.json`。
+- 数据模型：13 张 `ZCRW_*` 表、3 个号段（`ZCRW_REQ`/`ZCRW_CD`/`ZCRW_TASK`）、消息类 `ZCRW_MSG`、锁对象 `EZCRW_REQ`/`EZCRW_CD`。
+- 服务层：`ZCL_CRW_UTIL` / `_NUMBER` / `_AUDIT` / `_AUTH` / `_WORKFLOW` / `_APPR_SVC` / `_SCHEDULE_SVC` / `_REQUEST_SVC` / `_CD_SVC` / `_TASK_SVC` / `_BOOTSTRAP` / `_SELFCHECK` / `_M1_SMOKE` / `_TEST_DATA`、`ZCX_CRW_ERROR`。
+- **M1 API（已打通）**：ICF 节点 `ZCRW_APP` → `/sap/bc/zcrw`，`ZCL_CRW_HTTP_HANDLER` + `ZCL_CRW_API_ROUTER` + P0 控制器（`ME/HEALTH/DASHBOARD`、`REQUESTS`、`CHANGE-DOCUMENTS`、`TASKS`、`APPROVALS`）。
+  - 统一 JSON 信封（§6.7）；写请求 `X-CRW-Request: 1` + 乐观锁 `version`；错误码 → HTTP 400/401/403/404/409/500/502 映射。
+  - 实测：health/me/list/create/detail/action 经真实 HTTP 走通；`SUBMIT` 生成审批步骤；自审被 `SELF_APPROVAL(403)` 拦截；`SUBMIT_TEST` 守卫 `GUARD_FAILED(409)`。
+- 初始化：`ZCL_CRW_BOOTSTRAP` v1.1.0（号段区间 + 版本行 + REQ/CD 审批矩阵 + `ADMIN`/`CHANGE_MANAGER` 角色），幂等。
+- 自检：`ZCL_CRW_SELFCHECK` 只读，覆盖 13 表、号段、版本、消息类、角色、审批矩阵、ICF 节点（TADIR SICF）、E070 只读。
+- 前端：`src/mime/` 原生 ES modules 单页（hash 路由，工作台/请求/变更文档/任务/审批/传输/计划/报表/配置页面）；构建与联调进行中，尚未上传 MIME。
 
 ## 安装与初始化
 
+前置：`abap doctor` ok、`abap deploy status` current、`$CRW` 本地包已存在、当前连接为 dev/test。
+
 1. `abap deploy status --json`：确认 ICF current（过期则 `abap deploy --yes --json`）。
-2. `abap run ZCL_CRW_BOOTSTRAP --json`：幂等；创建号段区间 + 种子数据，期望 `CRW_BOOTSTRAP_OK`。
-3. `abap run ZCL_CRW_SELFCHECK --json`：只读；期望 `CRW_SELFCHECK_OK tables=13 ...`。
-4. `abap test ZCL_CRW_UTIL --json`：单元测试；期望 `passed=4`。
-5. `abap run ZCL_CRW_M1_SMOKE --json`：端到端冒烟；期望 `CRW_M1_SMOKE_OK ...`，并自动清理业务数据。
+2. 按依赖顺序校验并推送对象：`abap check content` / `abap validate:aff` → `check syntax` → `push` → `inspect --activation`（完整顺序与命令模板见 [docs/runbook.md](docs/runbook.md) §2）。
+3. 创建 ICF 节点（handler 必须先激活；HTTP AFF 需带顶层 `name` 的临时副本）：`abap create HTTP ZCRW_APP --file tmp/zcrw_app.create.http.json --package '$CRW' --description 'CRW workbench ICF node' --yes --json`。
+4. `abap run ZCL_CRW_BOOTSTRAP --json`：幂等；期望 `CRW_BOOTSTRAP_OK intervals=3 config=…`。
+5. `abap run ZCL_CRW_SELFCHECK --json`：期望 `CRW_SELFCHECK_OK tables=13 rows=… intervals=3 version=1.1.0 messages=8 roles=… approvals=2 icf=OK cts=OK`。
+6. `abap run ZCL_CRW_M1_SMOKE --json`：端到端冒烟（写数据，自动清理）；期望 `CRW_M1_SMOKE_OK …`。
+7. `abap run ZCL_CRW_TEST_DATA --json`：重置业务数据（仅开发/安装，**非只读**）；期望 `CRW_TEST_DATA_RESET rows=…`。
+
+## 运行与验证（只读）
+
+```bash
+abap run ZCL_CRW_SELFCHECK --json        # 12 表/号段/版本/消息/角色/矩阵/ICF/CTS 自检
+abap run ZCL_CRW_JSON --json             # JSON camelCase 自检，期望 CRW_JSON_OK
+abap test ZCL_CRW_UTIL --json            # ABAP Unit
+abap select --table DD02L --where "TABNAME LIKE 'ZCRW%'" --count-only --json
+abap select --table NRIV --where "OBJECT LIKE 'ZCRW%'" --json
+abap select --table T100 --where "ARBGB = 'ZCRW_MSG'" --json
+```
+
+HTTP 自检（浏览器登录后，替换 `<host>`；不把系统地址写入仓库）：
+
+- `GET <host>/sap/bc/zcrw/api/v1/health` → `data.status=ok`、`components.icf=ok`
+- `GET <host>/sap/bc/zcrw/api/v1/me` → 当前用户 / 角色 / `version=1.1.0`
+- `GET <host>/sap/bc/zcrw/api/v1/requests?page=1&size=20` → 分页 DTO
+
+> `ZCL_CRW_BOOTSTRAP` / `_M1_SMOKE` / `_TEST_DATA` 会写数据，只属于安装与开发步骤，不在只读验证清单内。
 
 ## 目录
 
 ```
 apps/change-request-workbench/
 ├── README.md
-├── docs/            # architecture / workflow / runbook（M1 起）
+├── docs/            # architecture / workflow / runbook / handoff
 ├── src/             # AFF：DDIC / CLAS / INTF / HTTP / TRAN / NROB / ENQU / MSAG
-├── src/mime/        # 前端资产
+├── src/mime/        # 前端资产（原生 ES modules）
 └── screenshots/     # 主页面截图（脱敏）
 ```
 
@@ -56,7 +79,7 @@ apps/change-request-workbench/
 
 ## 下一步
 
-1. `/api/v1` JSON API + ICF 节点 `ZCRW_APP`（CR/CD/Task 列表/详情/动作）。
-2. ICF 节点 + MIME + 前端首页（同时验证 MIME / SPA fallback / ICF 认证）。
-3. 审批步骤写入 + 角色鉴权 + 历史查询 API。
-4. 事务码 / TRAN 与剩余 M0 项。
+1. MIME `/zcrw` + SPA 上传与 ICF 认证 / SPA fallback 验证（M1 UI）。
+2. 审批中心、历史/备注、我的工作与 KPI 页面（M2）。
+3. CTS 只读适配器、传输工作台、导入计划页面（M3）。
+4. 报表 / 配置 / 迁移 / 截图与产品化收尾（M4）。

@@ -187,6 +187,31 @@ CTS Adapter（只读）── E070 / E071 / E07T / TMS 队列
 | 13 张 `ZCRW_*` 表 | TABL | 数据模型 | 见 §5.3；均 0 行业务数据 | 已建 |
 | `ZCL_CRW_M1_SMOKE` | CLAS + classrun | M1 端到端冒烟（验收用，非产品对象） | 建 CR → CD → Task / SubTask、走状态迁移并自动清理；输出 `CRW_M1_SMOKE_OK req=… cd=… task=… sub=…` | 已实现 |
 
+### 4.2.1 M1 API / 审批 / 计划层（2026-11-01 已实现）
+
+| 对象 | 类型 | 职责 | 关键实现 / 输出 | 状态 |
+|---|---|---|---|---|
+| `ZCL_CRW_JSON` | CLAS | JSON 序列化 / 反序列化 / 时间戳与日期转换 / PATCH 键检测 | `/ui2/cl_json` + `pretty_mode-camel_case`；`CRW_JSON_OK` 自检 | 已实现 |
+| `ZCL_CRW_LOG` | CLAS | 应用日志写入（不阻塞业务） | `ZRW_LOG` 行；`write` / `write_and_commit` | 已实现 |
+| `ZCL_CRW_AUTH` | CLAS | 角色装载与判定 | `load_roles` / `role_members` / `is_admin` / `has_role` / `require_any` | 已实现 |
+| `ZCL_CRW_WORKFLOW` | CLAS | 状态机纯逻辑（REQ / CD / TASK） | `target_status` / `is_valid` / `is_terminal` / `allowed_actions` | 已实现（D19 提前落地） |
+| `ZCL_CRW_APPR_SVC` | CLAS | 审批步骤生成 / 决策 / 跳过 / 列表 | 矩阵匹配 + ANY 规则 + 自审拦截 + 对象收尾；`ZCRW_APPR` | 已实现 |
+| `ZCL_CRW_SCHEDULE_SVC` | CLAS | 导入计划 CRUD 与逾期计算 | `create_or_update` / `cancel` / `confirm` / `active_for_object` / `is_overdue` | 已实现（M3 复用） |
+| `ZCL_CRW_API_TYPES` | CLAS | API DTO 类型集合 | camelCase DTO（§6.7） | 已实现 |
+| `ZCL_CRW_API_MAP` | CLAS | DDIC 行 → DTO 映射 | `request` / `change_document` / `task` / `approval` / `transport` / `history` / `note` / `import_schedule` | 已实现 |
+| `ZCL_CRW_API_CONTEXT` | CLAS | 请求/响应上下文 | method / path / body / user / roles / correlationId / 参数 / 响应载体 | 已实现 |
+| `ZCL_CRW_API_ROUTER` | CLAS | `/api/v1` 路由、写保护、错误信封、HTTP 状态映射 | 资源分发 + 异常映射 + 日志 | 已实现 |
+| `ZCL_CRW_HTTP_HANDLER` | CLAS | ICF 入口 | `/api/v1/*` 转 router；静态资源 + SPA fallback（MIME 于 M1 前端落地） | 已实现 |
+| `ZCL_CRW_API_ME` | CLAS | `/me` `/health` `/dashboard` | 角色 / 版本 / 组件健康 / KPI | 已实现（KPI P0 版，M2 增强） |
+| `ZCL_CRW_API_REQUEST` | CLAS | CR 控制器 | 列表 / 创建 / 详情 / PATCH / 动作 / history / notes / 子 CD | 已实现 |
+| `ZCL_CRW_API_CD` | CLAS | CD 控制器 | 列表 / 详情 / PATCH / 动作 / tasks / transports / schedule | 已实现 |
+| `ZCL_CRW_API_TASK` | CLAS | Task 控制器 | 列表 / 详情 / PATCH / 动作 / subtasks | 已实现 |
+| `ZCL_CRW_API_APPROVAL` | CLAS | 审批控制器 | 待我审批 / 步骤 / 决策 | 已实现 |
+| `ZCL_CRW_TEST_DATA` | CLAS + classrun | 测试数据复位 | 清业务表 + 种子审批角色；输出 `CRW_TEST_DATA_RESET rows=…` | 已实现（开发/安装用） |
+| `ZCRW_APP` | HTTP（SICF） | `/sap/bc/zcrw` ICF 节点 | `handlerClass = ZCL_CRW_HTTP_HANDLER` | 已创建（TADIR SICF） |
+
+**实测口径（2026-11-01）**：health/me/list/create/detail/action 经真实 ICF HTTP 走通；错误映射实测 400/403/404/409；未登录由 ICF 标准登录过程返回 401（响应体为登录页，A1/D21 实测结论）；ICF 节点创建后需再 `abap activate ZCL_CRW_HTTP_HANDLER` 一次以刷新类运行时缓存。
+
 ### 4.3 规划对象（M1–M4）
 
 | 层 | 对象 | 职责 |
@@ -659,7 +684,8 @@ ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,
 | 节点名 | `ZCRW_APP` |
 | 路径 | `/sap/bc/zcrw` |
 | 处理器类 | `ZCL_CRW_HTTP_HANDLER`（实现 `IF_HTTP_EXTENSION`） |
-| 创建方式 | AFF `create HTTP --file` + `push`（HTTP/TRAN 的 AFF 在 `create` 时需要顶层 `name` 信封字段，仓库内保留规范 AFF） |
+| 创建方式 | AFF `create HTTP --file`（仓库内保留规范 AFF；执行时生成带顶层 `name` 的临时副本） |
+| 状态 | **已创建（2026-11-01）**：HTTP 200 JSON 实测通过；创建后需再激活一次 handler 类以刷新 ICF 类缓存 |
 | 认证 | SAP 登录（SSO / 表单 / Basic，按客户环境）；应用不保存密码 |
 | 会话 | 由 SAP 控制超时 |
 
@@ -770,9 +796,8 @@ ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,
 
 ### 9.3 Selfcheck 契约
 
-- 只读；输出固定标记 `CRW_SELFCHECK_OK`，含 `tables=13 rows=… intervals=… version=… messages=…`；失败输出 `CRW_SELFCHECK_FAIL …`。
-- 当前实现覆盖：13 表可读、3 个号段区间、版本行、`ZCRW_MSG` 消息数、ADMIN 角色、审批矩阵种子行。
-- 规划 §7.8 还要求检查「CTS 可读、ICF 节点存在」，当前实现未覆盖，**待补**（§10 A11）。
+- 只读；输出固定标记 `CRW_SELFCHECK_OK tables=13 rows=… intervals=3 version=… messages=… roles=… approvals=… icf=OK cts=OK`；失败输出 `CRW_SELFCHECK_FAIL …`。
+- 覆盖：13 表可读、3 个号段区间、最新版本行、`ZCRW_MSG` 消息数、ADMIN 角色、审批矩阵种子行、**ICF 节点存在（TADIR SICF）**、**E070 只读**（A11 / D23 已实现；CTS 读取失败降级为 `cts=DEGRADED`，ICF 缺失判 FAIL）。
 - 用于只读验收：`abap run ZCL_CRW_SELFCHECK --json`（只读白名单内）。
 
 ### 9.4 日志与可观测
