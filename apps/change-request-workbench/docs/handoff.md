@@ -1,7 +1,7 @@
 # CRW 应用交接文档（Handoff）
 
-> 用途：新会话从零接手，完成“变更请求工作台（CRW）”应用。
-> 最后更新：2026-11-01；基线提交：`254988e`（demo 仓库）。
+> 用途：新会话接手/延续“变更请求工作台（CRW）”应用（M1–M4 已交付，见 §14）。
+> 最后更新：2026-11-01（M4 完成）；基线：`fbe659c`（M1 API）+ Phase 3–7 提交。
 > 工作区：`/Users/lei/Desktop/ai_abap/abap_cli_demo`；应用目录：`apps/change-request-workbench/`。
 
 ---
@@ -24,9 +24,10 @@ abap run ZCL_CRW_M1_SMOKE --json          # 写数据，但会自动清理
 
 - demo 仓库干净，HEAD 至少包含 `254988e`。
 - `deploy status`：`status=current`、`remoteVersion=2.0.0`、`match=true`。
-- selfcheck：`CRW_SELFCHECK_OK tables=13 rows=3 intervals=3 version=1.0.0 messages=8`。
-- 单测：`passed=4`。
-- smoke：`CRW_M1_SMOKE_OK req=… cd=… task=… sub=…`，执行后 `ZCRW_REQ/CD/TASK/HIST` 均 0 行。
+- selfcheck：`CRW_SELFCHECK_OK tables=13 rows=… intervals=3 version=1.1.0 messages=8 roles=… approvals=2 icf=OK cts=OK`。
+- 单测：util `passed=4`、workflow `passed=10`、json `passed=8`。
+- smoke：`CRW_M1_SMOKE_OK req=… cd=… task=… sub=…`，执行后仅剩种子数据（`ZCRW_REQ/CD/TASK/HIST` 业务行 0）。
+- 演示数据（截图/联调用）：`abap run ZCL_CRW_DEMO_DATA --json` → `CRW_DEMO_DATA_OK requests=3 cds=1 tasks=2 schedules=1`；复位 `abap run ZCL_CRW_TEST_DATA --json`。
 
 然后再读（按顺序）：
 
@@ -79,12 +80,9 @@ abap run ZCL_CRW_M1_SMOKE --json          # 写数据，但会自动清理
 
 当前 SAP 侧**只有种子数据**：`ZCRW_VERSION` 1 行、`ZCRW_APPR_CFG` 1 行、`ZCRW_ROLE` 1 行、`T100` 8 条、`NRIV` 3 行；无 CR/CD/TASK/HIST 业务数据。
 
-### 2.2 未完成
+### 2.2 剩余（P2，详见 §14.3）
 
-- **M1 余下**：`/api/v1` ICF handler + 路由 + 控制器；MIME + SPA 前端页面；审批步骤服务；角色鉴权；历史查询 API；selfcheck 的 CTS/ICF 检查；runbook。
-- **M2**：状态机细化（守卫/角色/副作用）、两级审批闭环、历史/备注 UI、我的工作/KPI、并发锁、状态机单测、测试数据 reset 类。
-- **M3**：CTS 只读适配器、DEV/ToC 关联、传输工作台、导入计划与提醒、导入确认（不执行 TMS）。
-- **M4**：报表/CSV、配置 UI、迁移/runbook、通知、截图、试点与产品化。
+M1–M4 已于 2026-11-01 全部交付（API/UI/审批/锁/CTS/计划/报表/配置/迁移/截图）。剩余为 P2：可传输包迁移、审批 ALL/改派/补审、ADM 检查清单、配置编辑、索引/归档、通知与后台作业化、报表日期参数、Fiori tile。
 
 ### 2.3 仓库/提交
 
@@ -361,3 +359,39 @@ P0 端点（完整 40 个见 architecture §6.2）：
 - CLI 仓库可能有未提交的 NROB/MSAG 修复，先 git status 保护，不要 reset。
 先做 Phase 1（冻结 handoff §6 的待定项并回写文档），再按 Phase 2–7 顺序实现；每完成一个阶段跑 handoff §4 的验证命令并汇报。
 ```
+
+---
+
+## 14. M1–M4 完成记录（2026-11-01）
+
+### 14.1 交付
+
+- **M1**：数据模型/服务层（既有延续）；`/api/v1`（`ZCL_CRW_API_ROUTER` / `_HTTP_HANDLER` / 控制器）；ICF 节点 `ZCRW_APP`；MIME/SPA（`src/mime/`，15 页面）；事务码 `ZCRW`（报表事务 → `ZCRW_START`）；`/health`、`/me`、`/dashboard`；审批步骤服务。
+- **M2**：`ZCL_CRW_WORKFLOW`（纯逻辑，单测 10）；CR/CD/Task 动作与守卫；两级审批（矩阵、ANY、驳回填意见、自审拦截、SKIP）；ENQUEUE 锁；历史/备注 API；我的工作/审批中心/看板；乐观锁与 409。
+- **M3**：`ZIF_CRW_CTS_READER` + `ZCL_CRW_CTS_ADAPTER`（E070/E071/E07T/TMSBUFFER 只读 + 降级）；传输关联/解绑/标记/同步；导入计划改期/取消/确认/逾期；CD 计划快照；传输工作台与计划页面。
+- **M4**：报表（分布/趋势、时长、逾期、ToC、CSV）；配置只读页面；`ZCL_CRW_MIGRATION`；runbook；脱敏截图；`ZCL_CRW_DEMO_DATA`。
+- **验证**：selfcheck（含 `icf=OK cts=OK`）、`abap test`（util 4 / workflow 10 / json 8）、真实 HTTP 实测 200/201/400/403/404/409/502、SPA 页面渲染截图、CSV 下载。
+- **提交**：`c3a8d19`（Phase 1 冻结）、`fbe659c`（Phase 2 API），Phase 3–7 见 `git log`。
+
+### 14.2 实测口径与坑
+
+- ICF：节点创建后需再 `abap activate ZCL_CRW_HTTP_HANDLER`，否则 500 `Class interface changed at runtime`；无尾斜杠 `/sap/bc/zcrw` 已 302 到带斜杠地址。
+- MIME：`abap mime push <dir>` 会把目录内容**扁平**上传到 `--root`；必须按层级分别 push（runbook S9），且偶发单文件未落地时按文件重推。
+- 未登录：`/api/v1/*` 由 ICF 标准登录过程接管，返回 401 + 登录页（非 JSON）；D21 实测结论。
+- ENQU：AFF 的 `lockParameters[].active` 必须显式为 `true`，否则生成的 `ENQUEUE_*` 只有 `MODE_*` 参数（已修正并重推）。
+- ABAP 类缓存：`abap push` 后 `abap run` 可能仍执行旧版本，`abap session reset` 后重跑可刷新（HTTP 侧同理，必要时重激活 handler）。
+- `ZCRW_HIST.OBJECT_ID` 为 CHAR20，放不下 32 字符的计划 UUID：动态/历史按前缀回查（已实现）。
+- `abap-cli` 在 HOME 不可写时会回退 workspace session store；为稳定写路径本会话使用了临时 HOME + fixture keychain + derived session key（`tmp/abapx`，gitignored，不属交付物）。
+
+### 14.3 P2 待办
+
+可传输包迁移（A19）；审批 ALL 规则、改派、事后补审；ADM 检查清单（W28）；配置页面编辑；索引（A20）；数据归档（A18）；通知与后台作业化提醒；报表日期范围；Fiori tile / 启动板。
+
+### 14.4 下个会话启动（P2）
+
+同 §0，另加：
+
+1. `git log --oneline -10` 了解 M1–M4 提交；读 `README.md` 当前状态与 `docs/runbook.md` §10。
+2. `abap run ZCL_CRW_SELFCHECK --json` 应输出 `icf=OK cts=OK`；`abap tcode ZCRW --json` 应解析到 `ZCRW_START`。
+3. 若环境需干净数据：`abap run ZCL_CRW_TEST_DATA --json`（写数据，属开发步骤）。
+4. P2 涉及包迁移 / 权限对象 / basis 配置，先与用户确认环境与范围。
