@@ -108,6 +108,22 @@ CLASS zcl_crw_cd_svc DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING iv_cd_id    TYPE zcrw_cd-cd_id
       EXPORTING ev_req_type TYPE zcrw_req-req_type
                 ev_priority TYPE zcrw_req-priority.
+
+    CLASS-METHODS perform_action
+      IMPORTING iv_cd_id             TYPE zcrw_cd-cd_id
+                iv_action            TYPE string
+                iv_version           TYPE i
+                iv_comment           TYPE string DEFAULT ''
+                iv_planned_import_at TYPE string DEFAULT ''
+                iv_cancel_schedule   TYPE abap_bool DEFAULT abap_false
+      RAISING   zcx_crw_error.
+
+    CLASS-METHODS lock_document
+      IMPORTING iv_cd_id TYPE zcrw_cd-cd_id
+      RAISING   zcx_crw_error.
+
+    CLASS-METHODS unlock_document
+      IMPORTING iv_cd_id TYPE zcrw_cd-cd_id.
 ENDCLASS.
 
 CLASS zcl_crw_cd_svc IMPLEMENTATION.
@@ -300,6 +316,23 @@ CLASS zcl_crw_cd_svc IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD action.
+    lock_document( iv_cd_id ).
+
+    TRY.
+        perform_action( iv_cd_id             = iv_cd_id
+                        iv_action            = iv_action
+                        iv_version           = iv_version
+                        iv_comment           = iv_comment
+                        iv_planned_import_at = iv_planned_import_at
+                        iv_cancel_schedule   = iv_cancel_schedule ).
+        unlock_document( iv_cd_id ).
+      CATCH zcx_crw_error INTO DATA(lx_lock_error).
+        unlock_document( iv_cd_id ).
+        RAISE EXCEPTION lx_lock_error.
+      ENDTRY.
+  ENDMETHOD.
+
+  METHOD perform_action.
     DATA ls_current TYPE zcrw_cd.
     DATA lt_roles TYPE zcl_crw_auth=>tt_roles.
     DATA lv_user TYPE string.
@@ -649,4 +682,26 @@ CLASS zcl_crw_cd_svc IMPLEMENTATION.
       WHERE c~cd_id = @iv_cd_id
       INTO (@ev_req_type, @ev_priority).
   ENDMETHOD.
+  METHOD lock_document.
+    CALL FUNCTION 'ENQUEUE_EZCRW_CD'
+      EXPORTING
+        cd_id         = iv_cd_id
+      EXCEPTIONS
+        foreign_lock  = 1
+        system_failure = 2
+        OTHERS        = 3.
+
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION TYPE zcx_crw_error
+        EXPORTING iv_code = 'OBJECT_LOCKED'
+                  iv_text = 'The change document is locked by another user'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD unlock_document.
+    CALL FUNCTION 'DEQUEUE_EZCRW_CD'
+      EXPORTING
+        cd_id = iv_cd_id.
+  ENDMETHOD.
+
 ENDCLASS.

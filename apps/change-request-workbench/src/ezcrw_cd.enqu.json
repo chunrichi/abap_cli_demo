@@ -1,9 +1,22 @@
 {
   "formatVersion": "1",
-  "header": { "description": "CRW lock object for change document", "originalLanguage": "en" },
-  "primaryTable": { "name": "ZCRW_CD", "lockMode": "exclusive" },
+  "header": {
+    "description": "CRW lock object for change document",
+    "originalLanguage": "en"
+  },
+  "primaryTable": {
+    "name": "ZCRW_CD",
+    "lockMode": "exclusive"
+  },
   "lockParameters": [
-    { "name": "CD_ID", "table": "ZCRW_CD", "field": "CD_ID" }
+    {
+      "name": "CD_ID",
+      "table": "ZCRW_CD",
+      "field": "CD_ID",
+      "active": true
+    }
   ],
-  "lockModules": { "allowRfc": false }
+  "lockModules": {
+    "allowRfc": false
+  }
 }

@@ -103,6 +103,20 @@ CLASS zcl_crw_request_svc DEFINITION PUBLIC FINAL CREATE PUBLIC.
     CLASS-METHODS check_close_guard
       IMPORTING iv_req_id TYPE zcrw_req-req_id
       RAISING   zcx_crw_error.
+
+    CLASS-METHODS perform_action
+      IMPORTING iv_req_id  TYPE zcrw_req-req_id
+                iv_action  TYPE string
+                iv_version TYPE i
+                iv_comment TYPE string DEFAULT ''
+      RAISING   zcx_crw_error.
+
+    CLASS-METHODS lock_request
+      IMPORTING iv_req_id TYPE zcrw_req-req_id
+      RAISING   zcx_crw_error.
+
+    CLASS-METHODS unlock_request
+      IMPORTING iv_req_id TYPE zcrw_req-req_id.
 ENDCLASS.
 
 CLASS zcl_crw_request_svc IMPLEMENTATION.
@@ -312,6 +326,21 @@ CLASS zcl_crw_request_svc IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD action.
+    lock_request( iv_req_id ).
+
+    TRY.
+        perform_action( iv_req_id  = iv_req_id
+                        iv_action  = iv_action
+                        iv_version = iv_version
+                        iv_comment = iv_comment ).
+        unlock_request( iv_req_id ).
+      CATCH zcx_crw_error INTO DATA(lx_lock_error).
+        unlock_request( iv_req_id ).
+        RAISE EXCEPTION lx_lock_error.
+      ENDTRY.
+  ENDMETHOD.
+
+  METHOD perform_action.
     DATA ls_current TYPE zcrw_req.
     DATA lt_roles TYPE zcl_crw_auth=>tt_roles.
     DATA lv_user TYPE string.
@@ -613,4 +642,26 @@ CLASS zcl_crw_request_svc IMPLEMENTATION.
                   iv_text = |{ lv_open } change document(s) are still open|.
     ENDIF.
   ENDMETHOD.
+  METHOD lock_request.
+    CALL FUNCTION 'ENQUEUE_EZCRW_REQ'
+      EXPORTING
+        req_id        = iv_req_id
+      EXCEPTIONS
+        foreign_lock  = 1
+        system_failure = 2
+        OTHERS        = 3.
+
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION TYPE zcx_crw_error
+        EXPORTING iv_code = 'OBJECT_LOCKED'
+                  iv_text = 'The change request is locked by another user'.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD unlock_request.
+    CALL FUNCTION 'DEQUEUE_EZCRW_REQ'
+      EXPORTING
+        req_id = iv_req_id.
+  ENDMETHOD.
+
 ENDCLASS.
