@@ -1,0 +1,19 @@
+{
+  "formatVersion": "1",
+  "header": {
+    "description": "CRW change document number range",
+    "originalLanguage": "en"
+  },
+  "interval": {
+    "numberLengthDomain": "NUMC10",
+    "percentWarning": 10,
+    "subType": "",
+    "untilYear": false,
+    "rolling": false,
+    "prefix": false
+  },
+  "configuration": {
+    "buffering": "none",
+    "bufferedNumbers": 10
+  }
+}

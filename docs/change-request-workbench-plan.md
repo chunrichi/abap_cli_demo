@@ -1,6 +1,6 @@
 # 变更请求工作台（CRW）· 需求与实施规划
 
-> 状态：规划草案 v5（2026-11-01）。D1–D10 已确认；M0 大部分通过（NROB/MSAG 受 CLI 限制，见 B.4）；M1 已建 13 张表 + 2 个锁对象。
+> 状态：规划草案 v6（2026-11-01）。D1–D10 已确认；M0 核心验证通过（NROB/MSAG 已修复）；M1 已建 13 表、3 个号段、消息类、2 个锁对象。
 > 定位：**真实应用**，不是 demo。对象、包、升级、权限均按产品标准处理；与 [`AGENTS.md`](../AGENTS.md) 的 demo 契约差异见 §10.4。
 > 技术形态参考 [`demos/01-icf-mime-stats`](../demos/01-icf-mime-stats/README.md)：ICF 节点 + JSON API + MIME 静态单页，本应用沿用并扩展。
 > 文中的 ChaRM 指 SAP Solution Manager 的 Change Request Management，仅作功能参照；本应用不复用其产品名，也不追求完整对标。
@@ -12,8 +12,8 @@
 - **形态**：ABAP 后端（DDIC + 服务类 + ICF JSON API + CTS 只读集成）+ MIME 托管的原生单页前端；事务码 `ZCRW` 进入。
 - **已确认**：产品名 `CRW`；仓库放 `apps/change-request-workbench/`；一期做 CR→CD→Task/SubTask、ToC、定时导入计划；CTS 做只读集成、不做 live 验证；UI 用 ICF + 原生 SPA；demo 路线图保留。
 - **写路径**：`$CRW` 本地包支持已在 abap-cli 2.0.0 落地（本地仓库 commit `3dd443d`，内置 ICF 服务同步升级到 2.0.0）；create / push / run / delete / DDIC 写路径均已验证。
-- **M0 状态**：已通过写路径、DDIC TABL、`/ui2/cl_json`、ABAP Unit、CTS 只读；NROB / MSAG 受 2.0.0 ICF 限制待解决（附录 B.4）；ICF 节点 / MIME / 事务码 / ENQU 已部分验证（ENQU 两个锁对象已建）。
-- **M1 进度**：13 张表 + 2 个锁对象已在 `$CRW` 建立（`select` 均 0 行）；bootstrap/selfcheck、服务/API、前端页面待做。
+- **M0 状态**：写路径、DDIC、`/ui2/cl_json`、ABAP Unit、CTS 只读、NROB、MSAG、ENQU 均已通过；NROB/MSAG 的 CLI 修复已 live 验证（附录 B.4）；ICF 节点 / MIME / 事务码 / ICF 认证留到 M1 与前端一起验证。
+- **M1 进度**：13 张表 + 3 个号段（`ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK`）+ 消息类 `ZCRW_MSG` + 2 个锁对象已在 `$CRW` 建立；bootstrap/selfcheck、服务/API、前端页面待做。
 - **怎么交付**：M0 决策与验证 → M1 数据模型与骨架 → M2 流程闭环 → M3 传输/ToC/计划 → M4 报表与产品化；每阶段有可机器判定的验收。
 - **已确认口径**：D8 = CTS 只读 + 手工关联、不做 live 验证；D9 = 计划导入 + 提醒、不执行 TMS 导入；D10 = CLI 升级到 2.0.0（`$` 本地包支持，已合并）。见 §12。
 
@@ -627,8 +627,8 @@ POST /transports/link
 
 | 阶段 | 目标 | 主要交付 | 验收（机器可判定） | 粗估 |
 |---|---|---|---|---|
-| M0 决策与验证 | 锁定范围、命名、包、技术路线 | D1–D10 决策、M0 验证清单结果、AGENTS.md 修订、数据模型/API 评审稿 | 写路径 / DDIC TABL / cl_json / ABAP Unit / CTS 读取已过；NROB、MSAG 受 CLI 2.0.0 限制（附录 B.4）；ICF/MIME/TRAN/ENQU 留到 M1 | 3–5 人日（进行中） |
-| M1 数据模型与骨架 | 13 张表、初始化/自检、CR+CD+Task/SubTask CRUD、角色、列表/详情页 | DDIC + 服务 + API 骨架 + 前端框架 + 部署 README | 13 张表 + 2 锁对象已建并 `select` 通；自检/单测/CRUD 待做 | 12–18 人日（进行中） |
+| M0 决策与验证 | 锁定范围、命名、包、技术路线 | D1–D10 决策、M0 验证清单结果、AGENTS.md 修订、数据模型/API 评审稿 | 写路径 / DDIC / cl_json / ABAP Unit / CTS / NROB / MSAG / ENQU 已过；ICF/MIME/TRAN 留 M1 | 3–5 人日（基本完成） |
+| M1 数据模型与骨架 | 13 张表、初始化/自检、CR+CD+Task/SubTask CRUD、角色、列表/详情页 | DDIC + 服务 + API 骨架 + 前端框架 + 部署 README | 13 表 + 3 号段 + 消息类 + 2 锁对象已建；自检/单测/CRUD 待做 | 12–18 人日（进行中） |
 | M2 流程闭环 | CR/CD/Task/SubTask 状态机、两级审批、审计、我的工作、KPI | 状态动作、审批中心、历史、任务板（P1） | 端到端标准变更用例通过；非法迁移/越权/并发被拒；连续两次重跑一致 | 12–18 人日 |
 | M3 传输/ToC/计划 | CTS 只读、DEV/ToC 关联、传输工作台、导入计划与提醒 | 传输/计划服务、页面、未关联/逾期告警 | 关联真实 transport 后状态展示正确；计划到期/逾期计算正确；CTS 失败降级 | 10–15 人日 |
 | M4 报表与产品化 | 报表、配置 UI、迁移/runbook、通知、截图、试点 | 报表 + CSV、配置界面、runbook、试点反馈 | DoD 清单全过；试点用户走通一个真实变更 | 8–12 人日 |
@@ -762,10 +762,10 @@ apps/change-request-workbench/
 
 ## 13. 下一步行动
 
-1. **处理 NROB / MSAG 工具链限制**（附录 B.4）：优先推动 abap-cli 修复（NROB 允许空 `subType`；MSAG 通道探测按能力而非 release），或按 B.4 的备选方案落地。
-2. **完成 M0 剩余验证**：ICF 节点 + MIME + SPA fallback、事务码、ENQU、ICF 认证；建议在 M1 建表/写 handler 时一起验证。
-3. **冻结 v1 数据模型与 API 契约**，写 `docs/architecture.md`、`docs/workflow.md`。
-4. **搭建 M1 骨架**：13 张表 + 初始化/自检 + CR/CD/Task/SubTask CRUD + 角色 + 列表/详情页。
+1. **提交/同步 CLI 本地修复**（NROB 空 `subType`、MSAG ADT→ICF fallback，见 B.4）；升级后重新 `abap deploy --yes`。
+2. **冻结 v1 API 契约与状态机**，写 `docs/architecture.md`、`docs/workflow.md`。
+3. **搭建 M1 服务与骨架**：bootstrap（配置种子 + 号段区间）、selfcheck、CR/CD/Task/SubTask CRUD、API 骨架、ICF 节点 + MIME + 前端首页。
+4. **补 M0 剩余**：ICF 认证、事务码、MIME/SPA fallback（随 M1 前端一起验证）。
 5. **拆分工作包**（数据/后端/API/前端/验收），进入看板并行开发。
 
 ## 附录 A：与 SAP ChaRM 的功能对照
@@ -806,9 +806,10 @@ apps/change-request-workbench/
 | 锁对象 | **已建**：`EZCRW_REQ` / `EZCRW_CD`（ENQU）；DD25L 验证 `ROOTTAB=ZCRW_REQ` |
 | `/ui2/cl_json` + ABAP Unit | **已通过**：classrun 输出 `CRW_M0_JSON_OK`（camelCase + 中文）；`abap test` 1 passed，testclasses sidecar push 可用 |
 | CTS 只读 | **已通过**：`E070` / `E071` / `E07T` 可读；`TMSBUFFER` 字段可查 |
-| NROB | **阻塞**：ICF handler 要求非空 `subType`，SAP 允许空（附录 B.4） |
-| MSAG | **阻塞**：通道探测选 ADT，但本系统无 msgclass 端点（附录 B.4） |
-| MIME/ICF/TRAN/ENQU | 留到 M1 与真实对象一起验证（需要 handler / 表 / 事务码形态） |
+| NROB | **已通过（CLI 修复后）**：`ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK` 已建；TNRO 3 行，`DTELSOBJ` 为空 |
+| MSAG | **已通过（CLI 修复后）**：`ZCRW_MSG` 已建（ADT 失败自动回退 ICF）；T100 8 条 |
+| CLI 本地修复 | NROB 空 subType + MSAG ADT→ICF fallback（工作区外 CLI 仓库，未提交；备份 `/tmp/crw-cli-fix-backup-*`）；完整单测 229 文件 / 2201 用例全绿 |
+| MIME/ICF/TRAN/ENQU | ENQU 两个锁对象已建；MIME/ICF/TRAN 留到 M1 与真实 handler/前端一起验证 |
 | 本机 Node | 宿主已升级到 Node v24.22.2（CLI 2.0.0 的 Node 24 LTS 要求）；`tmp/` 下的 Electron Node wrapper 仅为历史 fallback，不再需要 |
 
 ### B.2 M0 验证清单（待执行）
@@ -817,9 +818,9 @@ apps/change-request-workbench/
 |---|---|---|---|---|
 | 1 | 包与写路径 | `$CRW` 下 `create` + `push` + `run` + `delete` | transport 为空、对象可建可删 | **已通过**（`CRW_M0_OK`） |
 | 2 | DDIC 表 | 按 AFF 模板 `create TABL --file`；`select` 验证 | create → select → delete | **已通过**：13 张 CRW 表（0 行） |
-| 3 | 号段 | `create NROB --file` | 号段对象可建、可分配号 | **阻塞**（B.4-1） |
+| 3 | 号段 | `create NROB --file` | 号段对象可建、可分配号 | **已通过（修复后）**：3 个号段对象已建；区间创建留 bootstrap |
 | 4 | 锁对象 | `create ENQU --file` | 锁可加/释放 | **部分通过**：EZCRW_REQ / EZCRW_CD 已建；锁调用留 M1 |
-| 5 | 消息类 | `create MSAG --file` | 消息文本可取 | **阻塞**（B.4-2） |
+| 5 | 消息类 | `create MSAG --file` | 消息文本可取 | **已通过（修复后）**：ZCRW_MSG / T100 8 条 |
 | 6 | ICF 节点 | `create HTTP --file` + 访问 `/sap/bc/zcrw` | 返回页面/JSON | 留到 M1（需 handler 类） |
 | 7 | MIME 目录与文件 | `mime create` + `mime push` | 文件可访问 | 留到 M1（需前端资产） |
 | 8 | SPA fallback | GET 非 API 路径返回 index.html | 刷新深链不 404 | 留到 M1（随 ICF 节点） |
@@ -848,15 +849,15 @@ apps/change-request-workbench/
 
 **说明**：升级 CLI 后必须重新运行 `abap deploy --yes` 使 ICF 服务与 CLI 版本匹配；不再需要手工补丁。
 
-### B.4 已知工具链限制（2026-11-01，M0 发现）
+### B.4 工具链问题与修复（2026-11-01，M0 发现）
 
-| # | 现象 | 根因 | 影响 | 备选方案 |
+| # | 现象 | 根因 | 处理 | 状态 |
 |---|---|---|---|---|
-| 1 | `abap create NROB ...` 报 `NROB create needs ... interval.subType` | ICF handler 要求 `subType` 非空；SAP 本身允许无子对象 | 无法用 CLI 2.0.0 建 `ZCRW_REQ` 等号段对象 | (a) 推动 CLI 修复（推荐：允许空 subType）；(b) M1 建自定义 DTEL + 检查表作为 subobject（如请求类型），号段按 subobject 分配；(c) 临时 ICF 直连（不可复现，不采用） |
-| 2 | `abap create MSAG ...` 报 `No URI-Mapping defined for URI` | 通道探测按 release（789）选 ADT，但本系统 ADT 无 message-class 端点（`profile test`: msag.adt=absent, msag.icf=ok） | 无法用 CLI 2.0.0 建消息类 | (a) 推动 CLI 修复（按能力探测，推荐）；(b) 临时改 profile systemVersion 强制 ICF（脏，不采用）；(c) M1 先用异常类 + 常量文案，消息类后补 |
-| 3 | 建表时 `abap.string` / `TIMESTAMPL` / `INT4` / `RAW16` 报 enhancement category 错误 | ICF 建表 handler 的 exclass 固定为 '2'（Can Be Enhanced (Char. Type)），未从 AFF 读取 | 表字段只能用 CHAR / NUMC / DATS / TIMS | 已按 char-only 设计落地（见 §4.2）；后续可推动 CLI 支持 exclass（AFF / handler 增字段），再引入 deep/数值类型 |
+| 1 | NROB create 报 `NROB create needs ... interval.subType` | ICF handler 要求 `subType` 非空；SAP 本身允许无子对象 | 本地 CLI 放宽校验：空 `subType` → 空 `DTELSOBJ`；`abap deploy` 已更新 ICF | **已修复并验证**：`ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK` 已建 |
+| 2 | MSAG create 报 `No URI-Mapping defined for URI` | 通道探测按 release（789）选 ADT，但本系统 ADT 无 message-class 端点（`profile test`: msag.adt=absent, msag.icf=ok） | 本地 CLI 的 create / pull / push MSAG 在 ADT 端点缺失时自动回退 ICF | **已修复并验证**：`ZCRW_MSG` 已建，T100 8 条 |
+| 3 | 建表时 deep / 数值类型报 enhancement category 错误 | ICF 建表 handler 的 exclass 固定为 '2'（Can Be Enhanced (Char. Type)），未从 AFF 读取 | 设计改为 char-only 类型（见 §4.2） | **已按约束落地**；后续可推动 CLI 支持 exclass，再引入 deep/数值类型 |
 
-两条都不阻塞 M1 的数据模型与表结构，但阻塞「可读编号」与「消息类」的最终落地。
+**说明**：1/2 的 CLI 修复在工作区外的 `vibe_with_abap` 本地仓库，**未提交**；备份在 `/tmp/crw-cli-fix-backup-*`。完整单测 229 文件 / 2201 用例全绿；升级 CLI 后需重新 `abap deploy --yes`。
 
 ## 附录 C：待补充文档（M0/M1）
 

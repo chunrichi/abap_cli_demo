@@ -1,0 +1,14 @@
+{
+  "formatVersion": "1",
+  "header": { "description": "CRW message class", "originalLanguage": "en" },
+  "messages": [
+    { "number": "001", "text": "Change request &1 not found" },
+    { "number": "002", "text": "Invalid status transition: &1 -> &2" },
+    { "number": "003", "text": "Approval required before action &1" },
+    { "number": "004", "text": "Transport request &1 not found" },
+    { "number": "005", "text": "No authorization for action &1" },
+    { "number": "006", "text": "Change document &1 not found" },
+    { "number": "007", "text": "Task &1 not found" },
+    { "number": "008", "text": "Import schedule &1 not found" }
+  ]
+}

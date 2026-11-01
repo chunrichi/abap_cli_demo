@@ -1,6 +1,6 @@
 # 变更请求工作台（CRW）
 
-> 状态：M1（数据模型已建，服务/页面待做）。
+> 状态：M1（数据模型 + 号段 + 消息类已建；服务/页面待做）。
 > 这是**真实应用**，不是 demo；不套用 demo 的 `DMA` 命名与编号，契约见仓库 [`AGENTS.md`](../../AGENTS.md) §4A。
 > 产品规划与决策记录：[docs/change-request-workbench-plan.md](../../docs/change-request-workbench-plan.md)。
 
@@ -20,8 +20,8 @@
   重建命令（包不存在时）：`abap create DEVC '$CRW' --package '$TMP' --description 'Change Request Workbench local package' --package-type development --yes --json`。
 - **写路径**：abap-cli 2.0.0 原生支持 `$` 前缀本地包免 transport；`$CRW` probe 验证通过：create → check syntax → push → run（`CRW_M0_OK`）→ delete（无 `--tr`）。
 - **M0 已验证**：类 probe、DDIC TABL probe、`/ui2/cl_json` + ABAP Unit（testclasses sidecar）、CTS 只读（E070/E071/E07T）。
-- **M0 阻塞**（CLI 2.0.0 限制，见规划文档 B.4）：NROB（要求非空 subType）、MSAG（通道探测选 ADT，本系统无 msgclass 端点）。
-- **M1 数据模型**：13 张表（`ZCRW_*`）与 2 个锁对象（`EZCRW_REQ` / `EZCRW_CD`）已在 `$CRW` 建好；AFF 在 `src/`，`abap select --count-only` 均 0 行。
+- **NROB / MSAG 已修复**（本地 CLI 修复，见规划文档 B.4）：`ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK` 三个号段已建；`ZCRW_MSG` 消息类已建（T100 8 条）。
+- **M1 数据模型**：13 张表（`ZCRW_*`）、3 个号段、消息类、2 个锁对象（`EZCRW_REQ` / `EZCRW_CD`）已在 `$CRW` 建好；AFF 在 `src/`，表均 0 行。
 - 尚未创建任何 `ZCRW_*` 业务数据（表均为空）。
 
 ## 目录
@@ -44,7 +44,7 @@ apps/change-request-workbench/
 
 ## 下一步
 
-1. 处理 NROB / MSAG 工具链限制（规划文档 B.4），优先推动 abap-cli 修复。
-2. 完成 M0 剩余验证（ICF 节点 / MIME / SPA fallback / 事务码 / ICF 认证），建议与 M1 handler / 前端一起做。
-3. 冻结 v1 API 契约，写 `docs/architecture.md`、`docs/workflow.md`。
-4. 开始 M1 服务与骨架（bootstrap/selfcheck + CR/CD/Task/SubTask CRUD + 角色 + 列表/详情页）。
+1. 提交/同步本地 CLI 修复（NROB 空 subType、MSAG ADT→ICF fallback）；升级后重新 `abap deploy --yes`。
+2. 冻结 v1 API 契约与状态机，写 `docs/architecture.md`、`docs/workflow.md`。
+3. 开始 M1 服务与骨架：bootstrap（配置种子 + 号段区间）、selfcheck、CR/CD/Task/SubTask CRUD、API 骨架、ICF 节点 + MIME + 前端首页。
+4. 补 M0 剩余：ICF 认证、事务码、MIME/SPA fallback（随 M1 前端一起验证）。
