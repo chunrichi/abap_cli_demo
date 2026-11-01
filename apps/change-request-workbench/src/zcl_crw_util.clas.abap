@@ -6,6 +6,10 @@ CLASS zcl_crw_util DEFINITION PUBLIC FINAL CREATE PUBLIC.
     CLASS-METHODS uuid
       RETURNING VALUE(rv_uuid) TYPE char32.
 
+    CLASS-METHODS number_id
+      IMPORTING iv_number TYPE inri-nr
+      RETURNING VALUE(rv_id) TYPE string.
+
     CLASS-METHODS format_id
       IMPORTING iv_prefix TYPE string
                 iv_number TYPE inri-nr
@@ -25,7 +29,7 @@ CLASS zcl_crw_util IMPLEMENTATION.
     ENDTRY.
   ENDMETHOD.
 
-  METHOD format_id.
+  METHOD number_id.
     DATA lv_number TYPE string.
     DATA lv_offset TYPE i.
 
@@ -35,6 +39,10 @@ CLASS zcl_crw_util IMPLEMENTATION.
       lv_offset = 0.
     ENDIF.
 
-    rv_id = |{ iv_prefix }-{ lv_number+lv_offset(10) }|.
+    rv_id = lv_number+lv_offset(10).
+  ENDMETHOD.
+
+  METHOD format_id.
+    rv_id = |{ iv_prefix }-{ number_id( iv_number ) }|.
   ENDMETHOD.
 ENDCLASS.

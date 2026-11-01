@@ -1,6 +1,6 @@
 # 变更请求工作台（CRW）· 需求与实施规划
 
-> 状态：规划草案 v7（2026-11-01）。D1–D10 已确认；M0 核心验证通过（NROB/MSAG 已修复）；M1 已建 13 表、3 号段、消息类、2 锁对象、bootstrap/selfcheck 服务。
+> 状态：规划草案 v8（2026-11-01）。D1–D10 已确认；M0 核心验证通过（NROB/MSAG 已修复）；M1 已完成表/种子/号段/服务层/冒烟测试，API 与前端待做。
 > 定位：**真实应用**，不是 demo。对象、包、升级、权限均按产品标准处理；与 [`AGENTS.md`](../AGENTS.md) 的 demo 契约差异见 §10.4。
 > 技术形态参考 [`demos/01-icf-mime-stats`](../demos/01-icf-mime-stats/README.md)：ICF 节点 + JSON API + MIME 静态单页，本应用沿用并扩展。
 > 文中的 ChaRM 指 SAP Solution Manager 的 Change Request Management，仅作功能参照；本应用不复用其产品名，也不追求完整对标。
@@ -13,7 +13,7 @@
 - **已确认**：产品名 `CRW`；仓库放 `apps/change-request-workbench/`；一期做 CR→CD→Task/SubTask、ToC、定时导入计划；CTS 做只读集成、不做 live 验证；UI 用 ICF + 原生 SPA；demo 路线图保留。
 - **写路径**：`$CRW` 本地包支持已在 abap-cli 2.0.0 落地（本地仓库 commit `3dd443d`，内置 ICF 服务同步升级到 2.0.0）；create / push / run / delete / DDIC 写路径均已验证。
 - **M0 状态**：写路径、DDIC、`/ui2/cl_json`、ABAP Unit、CTS 只读、NROB、MSAG、ENQU 均已通过；NROB/MSAG 的 CLI 修复已 live 验证（附录 B.4）；ICF 节点 / MIME / 事务码 / ICF 认证留到 M1 与前端一起验证。
-- **M1 进度**：13 张表 + 3 个号段（`ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK`）+ 消息类 `ZCRW_MSG` + 2 个锁对象已在 `$CRW` 建立；`ZCL_CRW_UTIL` / `ZCL_CRW_NUMBER` / `ZCL_CRW_BOOTSTRAP` / `ZCL_CRW_SELFCHECK` / `ZCX_CRW_ERROR` 已建并验证（bootstrap 幂等、selfcheck 通过、UTIL 单测 3/3）；CRUD/API/前端页面待做。
+- **M1 进度**：13 张表 + 3 个号段 + 消息类 + 2 个锁对象已建；`ZCL_CRW_UTIL` / `ZCL_CRW_NUMBER` / `ZCL_CRW_AUDIT` / `ZCL_CRW_REQUEST_SVC` / `ZCL_CRW_CD_SVC` / `ZCL_CRW_TASK_SVC` / `ZCL_CRW_BOOTSTRAP` / `ZCL_CRW_SELFCHECK` / `ZCX_CRW_ERROR` 已建并验证（bootstrap 幂等、selfcheck 通过、UTIL 单测 4/4、M1 SMOKE 端到端通过且自动清理）；API/前端待做。
 - **怎么交付**：M0 决策与验证 → M1 数据模型与骨架 → M2 流程闭环 → M3 传输/ToC/计划 → M4 报表与产品化；每阶段有可机器判定的验收。
 - **已确认口径**：D8 = CTS 只读 + 手工关联、不做 live 验证；D9 = 计划导入 + 提醒、不执行 TMS 导入；D10 = CLI 升级到 2.0.0（`$` 本地包支持，已合并）。见 §12。
 
@@ -628,7 +628,7 @@ POST /transports/link
 | 阶段 | 目标 | 主要交付 | 验收（机器可判定） | 粗估 |
 |---|---|---|---|---|
 | M0 决策与验证 | 锁定范围、命名、包、技术路线 | D1–D10 决策、M0 验证清单结果、AGENTS.md 修订、数据模型/API 评审稿 | 写路径 / DDIC / cl_json / ABAP Unit / CTS / NROB / MSAG / ENQU 已过；ICF/MIME/TRAN 留 M1 | 3–5 人日（基本完成） |
-| M1 数据模型与骨架 | 13 张表、初始化/自检、CR+CD+Task/SubTask CRUD、角色、列表/详情页 | DDIC + 服务 + API 骨架 + 前端框架 + 部署 README | 13 表 + 3 号段 + 消息类 + 2 锁对象 + bootstrap/selfcheck/UTIL 单测已完成；CRUD/API/页面待做 | 12–18 人日（进行中） |
+| M1 数据模型与骨架 | 13 张表、初始化/自检、CR+CD+Task/SubTask CRUD、角色、列表/详情页 | DDIC + 服务 + API 骨架 + 前端框架 + 部署 README | 13 表 + 3 号段 + 消息类 + 2 锁对象 + bootstrap/selfcheck + CR/CD/Task 服务 + SMOKE 已完成；API/页面待做 | 12–18 人日（进行中） |
 | M2 流程闭环 | CR/CD/Task/SubTask 状态机、两级审批、审计、我的工作、KPI | 状态动作、审批中心、历史、任务板（P1） | 端到端标准变更用例通过；非法迁移/越权/并发被拒；连续两次重跑一致 | 12–18 人日 |
 | M3 传输/ToC/计划 | CTS 只读、DEV/ToC 关联、传输工作台、导入计划与提醒 | 传输/计划服务、页面、未关联/逾期告警 | 关联真实 transport 后状态展示正确；计划到期/逾期计算正确；CTS 失败降级 | 10–15 人日 |
 | M4 报表与产品化 | 报表、配置 UI、迁移/runbook、通知、截图、试点 | 报表 + CSV、配置界面、runbook、试点反馈 | DoD 清单全过；试点用户走通一个真实变更 | 8–12 人日 |
@@ -762,10 +762,11 @@ apps/change-request-workbench/
 
 ## 13. 下一步行动
 
-1. **完成 CR/CD/Task 服务与 API 骨架**：CRUD、状态机、审批/历史写入、`/api/v1` handler + ICF 节点。
-2. **写 `docs/architecture.md`、`docs/workflow.md`**，冻结 v1 API 契约与状态机。
-3. **前端首页**（MIME + 原生 ES modules），同时验证 MIME / SPA fallback / ICF 认证；补事务码 / TRAN。
-4. **拆分工作包**（数据/后端/API/前端/验收），进入看板并行开发。
+1. **实现 `/api/v1` handler + ICF 节点 `ZCRW_APP`**：CR/CD/Task 列表/详情/创建/状态动作，JSON 错误契约。
+2. **写 `docs/architecture.md`、`docs/workflow.md`**，冻结 v1 API 契约与状态机（进行中）。
+3. **前端首页**（MIME + 原生 ES modules），同时验证 MIME / SPA fallback / ICF 认证。
+4. **审批步骤写入 + 角色鉴权 + 历史查询 API**。
+5. **拆分工作包**（数据/后端/API/前端/验收），进入看板并行开发。
 
 ## 附录 A：与 SAP ChaRM 的功能对照
 
@@ -858,9 +859,9 @@ apps/change-request-workbench/
 
 **说明**：1/2 的 CLI 修复在工作区外的 `vibe_with_abap` 本地仓库，已提交 `c1367d6`；完整单测 229 文件 / 2201 用例全绿；升级 CLI 后需重新 `abap deploy --yes`。
 
-## 附录 C：待补充文档（M0/M1）
+## 附录 C：文档状态
 
-- `docs/architecture.md`：数据模型完整 DDL、API 契约、错误码、模块图。
-- `docs/workflow.md`：CR/CD/Task 状态迁移详表、审批矩阵示例、CTS 状态映射、计划导入语义。
-- `docs/runbook.md`：安装顺序、升级步骤、权限与 SICF 配置、号段区间、定时同步、故障排查、回滚、本地包限制。
-- `apps/change-request-workbench/README.md`：产品说明、角色、安装验证、截图索引。
+- `docs/architecture.md`：**已完成（2026-11-01，v1）**；含系统上下文、类地图、13 表摘要、`/api/v1` 契约、部署、安全、版本与 22 项待定（A1–A22）。
+- `docs/workflow.md`：**已完成（2026-11-01，v1）**；含 CR/CD/Task 状态机、审批、传输/ToC、导入计划、审计与错误语义，30 项待定（W1–W30）。
+- `docs/runbook.md`：待 M1 部署路径稳定后补（安装顺序、升级、权限与 SICF、号段、定时任务、回滚）。
+- `apps/change-request-workbench/README.md`：已完成产品说明、安装/初始化、验证命令与当前状态。

@@ -1,8 +1,9 @@
 # 变更请求工作台（CRW）
 
-> 状态：M1（数据模型 + 服务骨架已建；CRUD/API/页面待做）。
+> 状态：M1（数据模型 + 服务层 + 冒烟测试；API/页面待做）。
 > 这是**真实应用**，不是 demo；不套用 demo 的 `DMA` 命名与编号，契约见仓库 [`AGENTS.md`](../../AGENTS.md) §4A。
 > 产品规划与决策记录：[docs/change-request-workbench-plan.md](../../docs/change-request-workbench-plan.md)。
+> 架构与流程契约：[docs/architecture.md](docs/architecture.md)、[docs/workflow.md](docs/workflow.md)（v1，含待定项）。
 
 在 SAP 内管理「变更请求 → 变更文档 → 任务/子任务 → 传输（含 ToC）→ 测试 → 计划导入 → 关闭」的全流程工作台，提供工作清单、详情、审批、传输视图、导入计划、仪表盘、报表与审计。
 
@@ -22,7 +23,8 @@
 - **M0 已验证**：类 probe、DDIC TABL probe、`/ui2/cl_json` + ABAP Unit（testclasses sidecar）、CTS 只读（E070/E071/E07T）。
 - **NROB / MSAG 已修复**（本地 CLI 修复，见规划文档 B.4）：`ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK` 三个号段已建；`ZCRW_MSG` 消息类已建（T100 8 条）。
 - **M1 数据模型**：13 张表（`ZCRW_*`）、3 个号段、消息类、2 个锁对象（`EZCRW_REQ` / `EZCRW_CD`）已在 `$CRW` 建好；AFF 在 `src/`。
-- **M1 服务骨架**：`ZCL_CRW_UTIL`（时间 / GUID / 可读 ID）、`ZCL_CRW_NUMBER`（号段区间 + 取号）、`ZCL_CRW_BOOTSTRAP`（幂等初始化）、`ZCL_CRW_SELFCHECK`（只读自检）、`ZCX_CRW_ERROR`；`abap test ZCL_CRW_UTIL` 3/3 passed。
+- **M1 服务层**：`ZCL_CRW_UTIL`（时间 / GUID / 可读 ID）、`ZCL_CRW_NUMBER`（号段区间 + 取号）、`ZCL_CRW_AUDIT`（历史写入）、`ZCL_CRW_REQUEST_SVC` / `ZCL_CRW_CD_SVC` / `ZCL_CRW_TASK_SVC`（CR/CD/Task CRUD + 状态机 + 乐观锁 + 审计）、`ZCL_CRW_BOOTSTRAP`（幂等初始化）、`ZCL_CRW_SELFCHECK`（只读自检）、`ZCX_CRW_ERROR`。
+- **验证**：`abap run ZCL_CRW_M1_SMOKE --json` 端到端建 CR → CD → Task/SubTask、走状态机并自动清理；`abap test ZCL_CRW_UTIL` 4/4 passed。
 - **当前数据**：`ZCRW_VERSION` 1 行（CRW 1.0.0）、`ZCRW_APPR_CFG` 1 行（STD_DEFAULT）、`ZCRW_ROLE` 1 行（当前用户 ADMIN）、`NRIV` 3 行（三个号段区间）；无业务数据。
 
 ## 安装与初始化
@@ -30,7 +32,8 @@
 1. `abap deploy status --json`：确认 ICF current（过期则 `abap deploy --yes --json`）。
 2. `abap run ZCL_CRW_BOOTSTRAP --json`：幂等；创建号段区间 + 种子数据，期望 `CRW_BOOTSTRAP_OK`。
 3. `abap run ZCL_CRW_SELFCHECK --json`：只读；期望 `CRW_SELFCHECK_OK tables=13 ...`。
-4. `abap test ZCL_CRW_UTIL --json`：单元测试；期望 `passed=3`。
+4. `abap test ZCL_CRW_UTIL --json`：单元测试；期望 `passed=4`。
+5. `abap run ZCL_CRW_M1_SMOKE --json`：端到端冒烟；期望 `CRW_M1_SMOKE_OK ...`，并自动清理业务数据。
 
 ## 目录
 
@@ -52,7 +55,7 @@ apps/change-request-workbench/
 
 ## 下一步
 
-1. 完成 CR / CD / Task 服务类与 `/api/v1` JSON API 骨架。
-2. 写 `docs/architecture.md`、`docs/workflow.md`，冻结 v1 契约。
-3. ICF 节点 + MIME + 前端首页（同时验证 MIME / SPA fallback / ICF 认证）。
+1. `/api/v1` JSON API + ICF 节点 `ZCRW_APP`（CR/CD/Task 列表/详情/动作）。
+2. ICF 节点 + MIME + 前端首页（同时验证 MIME / SPA fallback / ICF 认证）。
+3. 审批步骤写入 + 角色鉴权 + 历史查询 API。
 4. 事务码 / TRAN 与剩余 M0 项。
