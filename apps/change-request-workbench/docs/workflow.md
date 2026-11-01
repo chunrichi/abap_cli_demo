@@ -2,8 +2,9 @@
 
 > 状态：v1 契约（M1 冻结；状态机、审批矩阵、传输与计划语义的共享契约，变更需评审）。
 > 事实源：[CRW 规划](../../../docs/change-request-workbench-plan.md)（下称「规划」）§4.5 / §5 / §7.4 / §8.4；冲突时以规划为准。
-> 配套文档：[architecture.md](architecture.md)（分层、数据模型、API 契约、部署、安全）、`docs/runbook.md`（运维，待写）。
+> 配套文档：[architecture.md](architecture.md)（分层、数据模型、API 契约、部署、安全）、[runbook.md](runbook.md)（运维，v1 骨架）。
 > 文档约定：状态码 / 动作码 / 错误码为 ASCII 大写；字段名与 DDIC 一致；**待定** 表示规划未定义、需在对应里程碑前决策。
+> v1 冻结（2026-11-01）：§12 的 W1–W30 已全部裁决；正文中标注“待定”的表述按 §12 “v1 决议”列执行。
 
 ---
 
@@ -672,40 +673,40 @@ IMPORTED ──CLOSE──▶ CLOSED
 
 ---
 
-## 12. 待定问题（Open Questions）
+## 12. 待定问题与 v1 决议（W1–W30，已冻结）
 
-| 编号 | 问题 | 影响 | 决策点 |
+| 编号 | 问题 | v1 决议（已冻结） | 实施里程碑 |
 |---|---|---|---|
-| W1 | CR 类型创建后是否可改、终态后是否可重开并关联原请求 | 流程完整性 | M2 |
-| W2 | CR `SUBMIT` 的必填字段集合 | 表单校验、API 契约 | M2 |
-| W3 | 头部 `APPROVAL_STATE` 取值集合（M1 已用 `PENDING` / `APPROVED` / `REJECTED`；`SKIPPED` / `NONE` 待定） | 审批联动、列表过滤 | M2 |
-| W4 | CD `START_DEV` 是否自动创建开发任务 | 交互、任务生成 | M2 |
-| W5 | `CONFIRM_IMPORT` 的允许来源态（规划写 `*`） | 状态机严谨性 | M2 |
-| W6 | CD 审批「可配置为关闭」的配置键与默认值 | 审批开关 | M2 |
-| W7 | `CANCELLED` 任务是否满足父任务 / CD 关闭条件 | 关闭守卫 | M2 |
-| W8 | `REOPEN` 可重开的状态与次数（P1） | 任务生命周期 | P1 |
-| W9 | `IMPORT` 类型任务是否为 `CONFIRM_IMPORT` 的强制条件 | 流程完整性 | M3 |
-| W10 | 角色编码集合、优先级编码集合与审批矩阵通配约定 | 鉴权、矩阵匹配 | M2 前必须冻结 |
-| W11 | `ZCRW_APPR_CFG.MANDATORY` 空值语义（可跳过 / 跳过记 `SKIPPED`） | 审批推进 | M2 |
-| W12 | 步骤「任意一人 / 全部」通过规则的存储字段（当前表无字段） | 审批正确性 | M2 前必须冻结 |
-| W13 | 驳回后未决步骤置 `SKIPPED` 还是保留 `PENDING` | 审批查询、历史 | M2 |
-| W14 | 审批决策是否携带对象 `version` | 并发控制 | M2 |
-| W15 | 审批人缺失 / 离职时的改派与矩阵调整流程 | 运维 | P1 |
-| W16 | `ZCRW_TR.SYNC_STATE` 取值集合（仅 `ERROR` 已定义） | 降级展示、报表筛选 | M3 |
-| W17 | ToC 业务状态是否需要独立字段（当前由 `TR_STATUS` + 计划派生） | 数据模型 | M3 |
-| W18 | 非状态动作的 `ACTION` 编码清单（`CREATE_*` / `LINK_*` / `SYNC_*`） | 审计契约 | M2 |
-| W19 | 解绑后 `CD_ID` 置空还是保留标记 | 数据一致性、审计 | M3 |
-| W20 | URG 跳过事前审批的方式与事后补审时限 | 紧急变更流程 | P1 |
-| W21 | CTS 读取失败时按端点返回 502 还是降级数据 | API 契约 | M3 |
-| W22 | `MISSED` 计算的时区基准 | 逾期准确性 | M3 |
-| W23 | 计划冲突判定规则（同目标系统 / 时间窗 / 周期） | 计划校验 | M3 |
-| W24 | `ZCRW_CD.PLANNED_IMPORT_AT` 与 `ZCRW_SCHED` 的权威关系 | 数据一致性 | M3 前必须冻结 |
-| W25 | `ZCRW_HIST.OBJECT_TYPE` 是否包含 `NOTE` | 审计范围 | M2 |
-| W26 | 历史长文本（> 255）截断规则 | 审计完整性 | M2 |
-| W27 | 未登录时 API 的 401 行为（ICF 重定向 vs JSON） | 前端处理 | M1 |
-| W28 | ADM 检查清单的数据模型（规划无对应表） | ADM 流程 | P2 |
-| W29 | 任务动作的角色细化、跨 CD 移动、父任务取消是否级联子任务 | 任务流程严谨性 | M2 |
-| W30 | `NEW` 状态 CR 的删除语义（规划 §5.2 称可删除，API 无 DELETE 端点） | 数据完整性、审计 | M2 |
+| W1 | CR 类型创建后是否可改、终态后是否可重开并关联原请求（影响：流程完整性） | CR 类型创建后不可修改；终态不复用、不重开；新 CR 在 `DESCRIPTION` 说明关联 | M2 |
+| W2 | CR `SUBMIT` 的必填字段集合（影响：表单校验、API 契约） | 必填：`REQ_TYPE` / `TITLE` / `PRIORITY` / `COMPONENT` / `PLANNED_START` / `PLANNED_END`；`DESCRIPTION` 选填 | M2 |
+| W3 | 头部 `APPROVAL_STATE` 取值集合（影响：审批联动、列表过滤） | 取值为 `NONE` / `PENDING` / `APPROVED` / `REJECTED` / `SKIPPED`：创建 `NONE`；`SUBMIT` / `SUBMIT_APPROVAL` 置 `PENDING`；末步通过 `APPROVED`；驳回 `REJECTED`；撤回回 `NONE` 且未决步骤 `SKIPPED`；取消时 `PENDING`→`SKIPPED`，否则保留 | M1 |
+| W4 | CD `START_DEV` 是否自动创建开发任务（影响：交互、任务生成） | `START_DEV` 不自动创建任务（任务显式创建） | M2 |
+| W5 | `CONFIRM_IMPORT` 的允许来源态（影响：状态机严谨性） | 允许来源 `READY_TO_IMPORT` / `IMPORT_SCHEDULED`；`IMPORTED` 重复提交与其他状态均 `INVALID_TRANSITION` | M3 |
+| W6 | CD 审批「可配置为关闭」的配置键与默认值（影响：审批开关） | 由审批矩阵表达：无匹配 CD 步骤 = 免审批（`SUBMIT_APPROVAL` 直接 `APPROVED` 并写历史）；bootstrap 默认种 CD/STD 1 步（`CHANGE_MANAGER`） | M2 |
+| W7 | `CANCELLED` 任务是否满足父任务 / CD 关闭条件（影响：关闭守卫） | `CANCELLED` 视为终止，满足父任务 `DONE` 与 CD `CLOSE` 守卫 | M2 |
+| W8 | `REOPEN` 可重开的状态与次数（影响：任务生命周期） | v1 不实现（P1） | P1 |
+| W9 | `IMPORT` 类型任务是否为 `CONFIRM_IMPORT` 的强制条件（影响：流程完整性） | `IMPORT` 类型任务不强制；`CONFIRM_IMPORT` 不校验导入任务 | M3 |
+| W10 | 角色编码集合、优先级编码集合与审批矩阵通配约定（影响：鉴权、矩阵匹配） | 角色编码固定为 `REQUESTER` / `CHANGE_MANAGER` / `DEVELOPER` / `TESTER` / `RELEASE_MANAGER` / `ADMIN`（`VIEWER` P2）；优先级码 `1` 紧急 / `2` 高 / `3` 中 / `4` 低 / 空 = 未定；审批矩阵匹配字段为空 = 通配（`PRIORITY` 空 = 任意） | M2 |
+| W11 | `ZCRW_APPR_CFG.MANDATORY` 空值语义（影响：审批推进） | `MANDATORY = 'X'` 为强制；空 = 可选，`CHANGE_MANAGER` / `ADMIN` 可 `SKIP_STEP` 跳过；v1 实现 `SKIP_STEP` | M2 |
+| W12 | 步骤「任意一人 / 全部」通过规则的存储字段（影响：审批正确性） | v1 固定「任意一人」（`ANY`）：同一角色解析多人时每人生成一条 `PENDING` 步骤，任一人决策后同步骤其余置 `SKIPPED`；`ALL` 规则 P1（需新字段） | M2 |
+| W13 | 驳回后未决步骤置 `SKIPPED` 还是保留 `PENDING`（影响：审批查询、历史） | 驳回后未决步骤置 `SKIPPED` | M2 |
+| W14 | 审批决策是否携带对象 `version`（影响：并发控制） | 审批决策携带对象 `version`，不匹配返回 `CONCURRENT_MODIFICATION` | M2 |
+| W15 | 审批人缺失 / 离职时的改派与矩阵调整流程（影响：运维） | v1 无审批改派 UI；人员变化通过角色解析自动生效；固定 `APPROVER_USER` 的改派 P2 | P1 |
+| W16 | `ZCRW_TR.SYNC_STATE` 取值集合（影响：降级展示、报表筛选） | `OK` / `ERROR` / `DETACHED` / `UNKNOWN`（未同步） | M3 |
+| W17 | ToC 业务状态是否需要独立字段（影响：数据模型） | 不新增 ToC 独立状态字段；由 `TR_STATUS` + `ZCRW_SCHED` + `IMPORTED_AT` 派生展示 | M3 |
+| W18 | 非状态动作的 `ACTION` 编码清单（影响：审计契约） | 编码固定为 `CREATE` / `UPDATE` / `SUBMIT` / `WITHDRAW` / `APPROVE_STEP` / `REJECT` / `SKIP_STEP` / `REVISE` / `START_PROGRESS` / `CLOSE` / `CANCEL` / `START` / `DONE` / `CREATE_CD` / `CREATE_TASK` / `CREATE_SUBTASK` / `LINK_TR` / `UNLINK_TR` / `MARK_DETACHED` / `SYNC_TR` / `SCHEDULE_CREATE` / `SCHEDULE_UPDATE` / `SCHEDULE_CANCEL` / `CONFIRM_IMPORT` / `CREATE_NOTE` | M2 |
+| W19 | 解绑后 `CD_ID` 置空还是保留标记（影响：数据一致性、审计） | unlink 置 `CD_ID` 为空（历史保留原关联）；mark-detached 不置空，置 `SYNC_STATE = DETACHED` | M3 |
+| W20 | URG 跳过事前审批的方式与事后补审时限（影响：紧急变更流程） | URG v1 仍走审批；矩阵无匹配步骤 = 免事前审批；事后补审 P2 | P2 |
+| W21 | CTS 读取失败时按端点返回 502 还是降级数据（影响：API 契约） | 列表 / 详情返回降级数据 + `degraded=true`（不返回 502）；`POST /transports/sync` 失败返回 `CTS_READ_ERROR`(502) | M3 |
+| W22 | `MISSED` 计算的时区基准（影响：逾期准确性） | 按 SAP 系统本地时间计算（与 architecture D16 一致） | M3 |
+| W23 | 计划冲突判定规则（影响：计划校验） | v1 只校验同一对象（重复生效计划）；跨对象时间窗冲突不校验（P1） | M3 |
+| W24 | `ZCRW_CD.PLANNED_IMPORT_AT` 与 `ZCRW_SCHED` 的权威关系（影响：数据一致性） | `ZCRW_SCHED` 为权威；`ZCRW_CD.PLANNED_IMPORT_AT` 只是快照，创建 / 改期 / 取消计划时同步（取消清空） | M3 |
+| W25 | `ZCRW_HIST.OBJECT_TYPE` 是否包含 `NOTE`（影响：审计范围） | 不含 `NOTE`（备注自身留痕） | M2 |
+| W26 | 历史长文本（> 255）截断规则（影响：审计完整性） | 长文本入参超过 255 字符返回 `VALIDATION_ERROR`，不静默截断；服务端拼接文本超长时截断 255 | M2 |
+| W27 | 未登录时 API 的 401 行为（影响：前端处理） | `/api/v1/*` 返回 JSON 401（`UNAUTHORIZED`）；页面路由由 ICF 登录过程重定向；M1 实测确认 | M1 |
+| W28 | ADM 检查清单的数据模型（影响：ADM 流程） | P2，不建表 | P2 |
+| W29 | 任务动作的角色细化、跨 CD 移动、父任务取消是否级联子任务（影响：任务流程严谨性） | `START` / `DONE` = assignee + `DEVELOPER` / `TESTER` / `CHANGE_MANAGER` / `ADMIN`；`CANCEL` = `CHANGE_MANAGER` / `ADMIN`（或父任务负责人）；不允许跨 CD 移动；父任务取消不级联子任务；子任务 `CANCELLED` 满足父 `DONE` 守卫 | M2 |
+| W30 | `NEW` 状态 CR 的删除语义（影响：数据完整性、审计） | 同 W1 口径：不提供物理 / 软删除 API；`NEW` 只能 `CANCEL`（原因必填）；审计只追加 | M2 |
 
 ---
 

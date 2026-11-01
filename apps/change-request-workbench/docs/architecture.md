@@ -4,6 +4,8 @@
 > 事实源：[CRW 规划](../../../docs/change-request-workbench-plan.md)（下称「规划」）；与规划冲突时以规划为准，与仓库契约冲突时以 [`AGENTS.md`](../../../AGENTS.md) §4A 为准。
 > 配套文档：[workflow.md](workflow.md)（状态机 / 审批 / CTS / 计划语义）、`docs/runbook.md`（安装 / 升级 / 运维，待写）。
 > 文档约定：状态码、动作码、错误码、字段名均为 ASCII 大写；字段名与 DDIC 一致；标注 **待定** 的条目表示规划未定义、需在对应里程碑前决策，不在实现中自行发明。
+>
+> **v1 冻结（2026-11-01，Phase 1）**：§10 的 A1–A22 已全部裁决（见“v1 决议”列）；正文中残留的“待定 / Axx”表述一律以 §10 决议为准；DTO、参数与排序白名单见 §6.7。
 
 ---
 
@@ -253,7 +255,7 @@ User ──< RoleAssignment（全局 / 组件 / 周期）
 | 工时 | `NUMC5` | 小时数 | DTO 层格式化 | `00040` |
 | 日期 | `DATS` | `YYYYMMDD` | API 用 `YYYY-MM-DD` | `20261127` |
 | 枚举 / 状态 | `CHARn` | 大写常量 | 服务层常量，禁止 UI 直写 | `PENDING_APPROVAL` |
-| 长文本 | `CHAR255` | 文本 | 超长截断规则待定（§10 A14） | — |
+| 长文本 | `CHAR255` | 文本 | 入参超 255 字符 → `VALIDATION_ERROR`，不静默截断（§10 A14 / W26） | — |
 
 **架构后果**：
 
@@ -285,8 +287,8 @@ User ──< RoleAssignment（全局 / 组件 / 周期）
 补充：
 
 - P2 新增 `ZCRW_ATTACH`（附件，表存 xstring，有大小限制）与 `ZCRW_CFG_*` 细分配置表；一期不建。
-- `PRIORITY` 为 `CHAR2`，但规划 §8.3 示例使用 `MEDIUM` —— 优先级编码集合待定（§10 A5），实现前必须冻结。
-- 头部 `APPROVAL_STATE`：M1 服务类常量已使用 `PENDING` / `APPROVED` / `REJECTED`；`SKIPPED` / `NONE` 与取消对象的标记方式规划未枚举，待定（§10 A6）。
+- `PRIORITY` 为 `CHAR2`：`1` 紧急 / `2` 高 / `3` 中 / `4` 低；空 = 未定；规划 §8.3 示例的 `MEDIUM` 不再使用（见 §10 A5 / D11）。
+- 头部 `APPROVAL_STATE`：`NONE` / `PENDING` / `APPROVED` / `REJECTED` / `SKIPPED`（见 §10 A6 / D12）。
 
 ### 5.4 编号与显示 ID
 
@@ -310,7 +312,7 @@ User ──< RoleAssignment（全局 / 组件 / 周期）
 | 悲观锁 | `EZCRW_REQ` / `EZCRW_CD` 已建 | 关键动作（审批、状态迁移、关联传输、改计划）按对象类型加锁；锁等待超时返回冲突 |
 | 乐观锁 | `VERSION` NUMC6（REQ / CD / TASK） | 更新 `WHERE version = 期望值`；影响 0 行返回 `CONCURRENT_MODIFICATION` |
 | 号段并发 | `NUMBER_GET_NEXT` | 由 SAP 号段保证唯一，不在应用层加锁 |
-| 删除 | API 无 DELETE 端点 | 终态通过 `CANCELLED` 表达；历史 / 审计不删除。规划 §5.2 称 `NEW` 状态「可删除」，但 API 未定义删除端点，是否提供（物理删 / 软删）**待定**（A21） |
+| 删除 | API 无 DELETE 端点 | 终态通过 `CANCELLED` 表达；历史 / 审计不删除；`NEW` 可 `CANCEL`（原因必填），不提供物理/软删除（§10 A21 / D17） |
 
 ### 5.6 时间表示与 API 转换
 
@@ -321,7 +323,7 @@ User ──< RoleAssignment（全局 / 组件 / 周期）
 | DTO / API | 时间戳 ISO 8601 含时区；日期 `YYYY-MM-DD` | 入参解析、出参格式化在 DTO 层完成 |
 | 展示 | 本地化格式 | 前端按浏览器时区展示 |
 
-- 时区换算基准（SAP 系统时区 / 用户时区 / 固定 `+08:00`）规划未定义，**待定**（§10 A9）；实现前必须冻结，否则计划导入时间与逾期计算会漂移。
+- 时区基准已冻结（§10 A9 / D16）：存 SAP 系统本地时间（`sy-datum` + `sy-uzeit`），API 返回 ISO 字符串并附 `timezone:"SAP_SYSTEM"`，不做跨时区换算；逾期计算同基准。
 
 ### 5.7 数据增长与保留
 
@@ -345,10 +347,10 @@ User ──< RoleAssignment（全局 / 组件 / 周期）
 | 分页响应 | `{"items":[...],"page":1,"pageSize":50,"total":123}` |
 | 日期 / 时间 | 日期 `YYYY-MM-DD`；时间戳 ISO 8601 含时区 |
 | 命名 | DTO 字段 camelCase（`/ui2/cl_json`）；ABAP 内部按 abap-style 命名 |
-| 写保护 | 所有写操作要求请求头 `X-CRW-Request: 1` 且同源；缺失返回 `VALIDATION_ERROR` / `FORBIDDEN`（具体码待定，§10 A15） |
+| 写保护 | 所有写操作要求请求头 `X-CRW-Request: 1` 且同源；缺失或值不为 1 → `VALIDATION_ERROR`（§10 A15） |
 | 乐观锁 | 写请求体带 `version`；不匹配返回 `CONCURRENT_MODIFICATION`（409） |
 | 鉴权 | 依赖 SAP 会话；服务端按角色 + 数据范围校验 |
-| 排序 | 字段白名单，禁止动态拼接 SQL；白名单集合待定（§10 A12） |
+| 排序 | 字段白名单，禁止动态拼接 SQL；白名单已冻结：`createdAt|changedAt|id|title|status|priority|dueDate`（§6.7 / A12） |
 | 幂等 | 动作重复提交：状态已变化返回 `INVALID_TRANSITION`，不产生重复历史 / 审批记录 |
 
 ### 6.2 端点
@@ -455,7 +457,7 @@ POST /api/v1/requests
 }
 ```
 
-响应（字段集合以最终 DTO 冻结为准；`id` / `status` / `version` 必须返回，是否返回展示编号待定 §10 A4）：
+响应（DTO 字段全集已冻结，见 §6.7：`id` / `displayId` / `status` / `version` 必返）：
 
 ```json
 {
@@ -537,7 +539,7 @@ POST /api/v1/transports/link
 
 **HTTP 状态总则**：400 参数 / 校验；401 未登录；403 无权限；404 不存在；409 冲突 / 非法迁移；500 内部错误；502 上游（CTS）读取失败。
 
-- 401 的落地方式依赖 ICF 认证过程（登录页重定向 vs JSON 401），**待定**（§10 A1）。
+- 401 已冻结（§10 A1 / D21）：`/api/v1/*` 未登录返回 JSON 401 `UNAUTHORIZED`；页面路径由 ICF 登录过程重定向。
 - 内部异常码到 API 错误码的映射在 router 层集中完成：`ZCX_CRW_ERROR.MV_CODE` 的 `NR_*` → `NUMBER_RANGE_ERROR`，`ZCRW_MSG` 001 / 004 / 006 / 007 / 008 → `NOT_FOUND`，002 → `INVALID_TRANSITION`，003 → `GUARD_FAILED`，005 → `FORBIDDEN`。
 
 ### 6.5 并发与幂等
@@ -552,7 +554,99 @@ POST /api/v1/transports/link
 - 路径带 `v1`；字段**只增不删、不改语义**；破坏性变更升 `v2` 并保留 `v1` 一个迭代。
 - 前端与后端同包发布；版本号写 `ZCRW_VERSION` 并由 `/health` 返回，页面显示版本。
 - DTO 字段命名 camelCase；ABAP 内部命名按 abap-style，映射集中在 DTO 层，不在 controller 里散落。
-- `PATCH` 局部更新语义（字段缺省 vs 显式 `null`）规划未定义，**待定**（§10 A16）。
+- `PATCH` 局部更新语义已冻结（§6.7 / §10 A16）：只更新请求体出现的键，出现空字符串表示清空可选字段，未出现不变；`version` 必填。
+
+---
+
+### 6.7 v1 冻结点：DTO、动作、参数与排序白名单
+
+> 2026-11-01 冻结（Phase 1）；与 §10 决议、[workflow.md](workflow.md) §12 决议一致。字段**只增不删**；DDIC 字段 ↔ DTO 映射只在 controller / DTO 层完成。
+
+**通用规则**
+
+| 项 | 冻结值 |
+|---|---|
+| 写保护 | 非 GET 请求必须带 `X-CRW-Request: 1`（同源）；缺失 / 值不为 1 → `VALIDATION_ERROR`(400) |
+| 乐观锁 | 写请求体必带数字 `version`；缺失 → `VALIDATION_ERROR`；不匹配 → `CONCURRENT_MODIFICATION`(409) |
+| PATCH 语义 | 只更新请求体中**出现的键**（按原始 JSON 键判定）；出现空字符串 = 清空可选字段；未出现 = 不变；`version` 必填 |
+| 分页 | `page`（默认 1）、`size`（默认 50，最大 200）；响应 `{items,page,pageSize,total}` |
+| 排序 | `sort` 白名单：`createdAt` / `changedAt` / `id` / `title` / `status` / `priority` / `dueDate`；`order=asc\|desc`；默认 `createdAt desc`；非法值 → `VALIDATION_ERROR` |
+| 搜索 | 列表 `q`：标题模糊匹配（`TITLE LIKE %q%`，大小写不敏感由 DB 决定） |
+| 时间 | 时间戳 `yyyy-MM-ddTHH:mm:ss` + `timezone:"SAP_SYSTEM"`（系统本地时间，不做换算）；日期 `yyyy-MM-dd`；入参接受 ISO（含偏移时忽略偏移）或 `yyyyMMddHHmmss` |
+| ID | 路径与 `OBJECT_ID` = 裸 10 位零填充号；DTO 同时返回 `displayId`（`CR-…` / `CD-…` / `T-…` / `ST-…`） |
+| 未登录 | `/api/v1/*` → JSON 401 `{"status":"error","code":"UNAUTHORIZED",…}`；页面路径由 ICF 登录过程重定向（Phase 2 实测） |
+| 空值 | CHAR 字段空值出参为 `""`；DATS 空值出参为 `""`；`estHours` 为数字（空 = 0） |
+
+**DTO（camelCase，出参字段全集；M1 先实现 P0，P1 字段随后补）**
+
+```text
+Me          { user, displayName, roles:[{role,scopeType,scopeId}], admin, environment, version }
+Health      { version, status:"ok|degraded|down", components:{icf,tables,numberRanges,approvalMatrix,cts,version} }
+Dashboard   { kpis:{myApprovals,myTasks,pendingRequests,inDev,readyToImport,overdue},
+              recent:[{objectType,objectId,displayId,title,action,changedAt,changedBy}] }
+Request     { id, displayId, requestType, title, description, status, priority, component, cycleId,
+              requester, owner, approvalState, plannedStart, plannedEnd, dueDate,
+              version, createdAt, createdBy, changedAt, changedBy, closedAt, cancelReason }
+CD          { id, displayId, reqId, reqDisplayId, cycleId, title, status, owner, devLead, testLead,
+              targetSystem, plannedImportAt, approvalState, version,
+              createdAt, createdBy, changedAt, changedBy, closedAt }
+Task        { id, displayId, reqId, cdId, parentTaskId, taskLevel:"T|S", taskType, title, assignee,
+              status, dueDate, estHours, version, createdAt, createdBy, changedAt, changedBy }
+Approval    { id, objectType:"REQ|CD", objectId, objectDisplayId, objectTitle, stepNo, approver,
+              apprState, decidedAt, comment, createdAt }
+Transport   { trkorr, cdId, taskId, trKind:"DEV|TOC", targetSystem, trStatus:"D|R|…", trStatusText,
+              releasedAt, importScheduledAt, importedAt, lastSyncAt, linkedAt, linkedBy,
+              retrofitState:"NA|PENDING|DONE", syncState:"OK|ERROR|DETACHED|UNKNOWN",
+              description, linked, degraded }
+TransportDetail = Transport + { objects:[{pgmid,object,objName,objType,objNameText}], schedule? }
+Schedule    { id, objectType:"CD|TOC", objectId, objectDisplayId, targetSystem, scheduledAt,
+              status:"PLANNED|DONE|MISSED|CANCELLED", note, overdue }
+Cycle       { id, description, startDate, endDate, freezeDate, status, targetSystem }
+RoleRow     { userId, role, scopeType, scopeId, validFrom, validTo }
+MatrixRow   { profileId, stepNo, approverRole, approverUser, objectType, reqType, priority, mandatory }
+History     { id, objectType, objectId, action, field, oldValue, newValue, comment, changedBy, changedAt, source }
+Note        { id, objectType, objectId, author, text, createdAt, visibility }
+ChangesRpt  { byStatus:[{key,count}], byType:[{key,count}], byPriority:[{key,count}],
+              trend:[{date,created,closed}] }
+DurationRpt { approval:{avgHours,minHours,maxHours,count}, closure:{avgHours,minHours,maxHours,count} }
+OverdueRpt  { items:[{kind:"TASK|SCHEDULE|APPROVAL",objectType,objectId,displayId,title,dueAt,daysOverdue}] }
+ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,importedAt,retrofitState}] }
+```
+
+**列表筛选参数（冻结）**
+
+| 资源 | 参数 |
+|---|---|
+| `/requests` | `status` `requestType` `priority` `component` `cycleId` `owner` `requester` `q` |
+| `/change-documents` | `reqId` `status` `cycleId` `owner` `targetSystem` `q` |
+| `/tasks` | `assignee` `status` `taskType` `cdId` `reqId` `parentTaskId` `dueDateFrom` `dueDateTo` `q` |
+| `/approvals` | `scope=mine\|decided\|all`（默认 `mine`） |
+| `/transports` | `cdId` `trKind` `targetSystem` `syncState` `q`(trkorr/描述) |
+| `/schedules` | `from` `to` `targetSystem` `status` `objectType` `overdue=true` |
+
+**动作与专属参数（`POST …/actions`，body `{action, version, comment?, …}`）**
+
+| 对象 | action | 专属参数 / 说明 |
+|---|---|---|
+| CR | `SUBMIT` `WITHDRAW` `APPROVE_STEP` `REJECT` `SKIP_STEP` `REVISE` `START_PROGRESS` `CLOSE` `CANCEL` | `REJECT`/`CANCEL` 需 `comment`；`CANCEL` 写 `cancelReason` |
+| CD | `START_DEV` `SUBMIT_TEST` `PASS_TEST` `SUBMIT_APPROVAL` `MARK_READY` `SCHEDULE_IMPORT` `CONFIRM_IMPORT` `CLOSE` `CANCEL` | `SCHEDULE_IMPORT` 需 `plannedImportAt`，取消计划传 `cancelSchedule:true`；`PASS_TEST` 可带 `comment`；`CONFIRM_IMPORT` 可带 `importedAt`（缺省 now） |
+| Task | `START` `DONE` `CANCEL` | `CANCEL` 需 `comment` |
+| Schedule | `/schedules/{id}/actions`：`RESCHEDULE`（`scheduledAt` 必填）、`CANCEL`、`CONFIRM` | 确认完成写 `DONE` 并从 `PLANNED`/`MISSED` 迁移 |
+| Approval | `/approvals/{id}/decision`：`{decision:"APPROVED"\|"REJECTED", comment, version}` | `REJECTED` 需 `comment` |
+
+**创建/编辑载荷（冻结字段；`POST` 用创建字段，`PATCH` 用可编辑字段）**
+
+- `POST /requests`：`requestType` `title` `description?` `priority` `component` `cycleId?` `owner?` `plannedStart` `plannedEnd` `dueDate?`（`requester` 取会话用户）。
+- `PATCH /requests/{id}`：`title` `description` `priority` `component` `cycleId` `owner` `plannedStart` `plannedEnd` `dueDate`。
+- `POST /requests/{id}/change-documents`：`title` `cycleId?` `targetSystem` `owner?` `devLead?` `testLead?` `plannedImportAt?` `version`（父 CR version）。
+- `PATCH /change-documents/{id}`：`title` `cycleId` `targetSystem` `owner` `devLead` `testLead` `plannedImportAt`。
+- `POST /change-documents/{id}/tasks`：`title` `taskType` `assignee` `dueDate?` `estHours?`。
+- `POST /tasks/{id}/subtasks`：`title` `taskType` `assignee` `dueDate?` `estHours?`。
+- `PATCH /tasks/{id}`：`title` `assignee` `dueDate` `estHours`。
+- `POST /transports/link`：`cdId` `trkorr` `trKind` `taskId?`。
+- `POST /approvals/{id}/decision`：见上表。
+
+**错误码补充**：`UNAUTHORIZED` = 401（未登录）；其余见 §6.4。
 
 ---
 
@@ -586,7 +680,7 @@ POST /api/v1/transports/link
 | 项 | 约定 |
 |---|---|
 | API 响应 | `Content-Type: application/json; charset=utf-8`；不缓存 |
-| 静态资源 | 允许浏览器缓存；缓存策略与版本参数待定（§10 A13） |
+| 静态资源 | `Cache-Control: no-cache` + URL 版本参数 `?v=<version>`；API `no-store`；ETag 不实现（§10 A13） |
 | CSP | `default-src 'self'`；禁止内联脚本（除 hash） |
 | 安全头 | 同源校验；写接口要求 `X-CRW-Request: 1` |
 | 错误响应 | 不暴露内部细节、表名、堆栈、系统信息 |
@@ -604,7 +698,7 @@ POST /api/v1/transports/link
 | 项 | 值 |
 |---|---|
 | 事务码 | `ZCRW` |
-| 类型与参数 | **待定**：AFF 无 URL 类型事务码，可能用参数事务或书签替代（§10 A2）；M1 验证 |
+| 类型与参数 | 参数事务 `ZCRW` → 报表 `ZCRW_START` 打开 ICF URL（`cl_gui_frontend_services=>execute`）；AFF 无 URL 类型 TRAN，实测后回写（§10 A2 / D22） |
 
 ### 7.6 本地包限制与部署边界
 
@@ -619,7 +713,7 @@ POST /api/v1/transports/link
 ### 8.1 认证
 
 - 身份来自 ICF 节点的 SAP 登录（SSO / 表单 / Basic，按客户环境）；应用不保存、不传递密码。
-- 会话超时由 SAP 控制；未登录时 API 的行为（登录页重定向或 JSON 401）**待定**（§10 A1）。
+- 会话超时由 SAP 控制；未登录时 API 返回 JSON 401 `UNAUTHORIZED`（§10 A1 / D21）。
 
 ### 8.2 应用角色模型
 
@@ -634,7 +728,7 @@ POST /api/v1/transports/link
 | 观察者 Viewer | 只读查看报表与请求 | 按组件 / 周期 | P2 |
 
 - 角色存于 `ZCRW_ROLE`：`USER_ID` + `ROLE` + `SCOPE_TYPE`（GLOBAL / COMPONENT / CYCLE）+ `SCOPE_ID` + 有效期 `VALID_FROM` / `VALID_TO`。
-- 角色编码集合规划未枚举（bootstrap 使用 `ADMIN` 与 `CRW_APPROVER`），**待定**（§10 A7）。
+- 角色编码已冻结（§10 A7 / W10）：`REQUESTER` / `CHANGE_MANAGER` / `DEVELOPER` / `TESTER` / `RELEASE_MANAGER` / `ADMIN`（`VIEWER` P2）。
 - bootstrap 把当前执行用户初始化为 `ADMIN`（初始管理员）；后续角色分配走管理界面（P1）或 runbook 手工步骤。
 
 ### 8.3 服务端鉴权与数据范围
@@ -642,7 +736,7 @@ POST /api/v1/transports/link
 - 每个写操作在 service 层校验「角色 + 数据范围 + 当前状态」；前端隐藏按钮只是体验，不作为安全边界。
 - 读操作按角色与数据范围过滤（请求人仅自己的请求；开发 / 测试按指派；变更经理 / 发布管理员 / 管理员全量；观察者按组件 / 周期）。
 - 审批人校验额外两条：非当前步骤审批人 → `APPROVER_MISMATCH`；请求人审批自己 → `SELF_APPROVAL`。
-- 标准权限叠加：敏感动作可叠加 `AUTHORITY-CHECK`（`S_DEVELOP`、`S_CTS_ADMI` 等）；具体检查项与 basis 确认，**待定**（§10 A8）。
+- 标准权限叠加：v1 不做 `AUTHORITY-CHECK`，依赖 SAP 登录 + 应用角色；basis 级增强 P2（§10 A8）。
 - 不创建自定义 AUTH 对象（abap-cli 不支持）；生产级自定义权限人工配置。
 
 ### 8.4 Web 安全基线
@@ -665,7 +759,7 @@ POST /api/v1/transports/link
 ### 9.1 版本标识
 
 - `ZCRW_VERSION`（`COMPONENT` + `VERSION_NO`）记录已应用版本；bootstrap 种 `CRW` / `1.0.0`。
-- `/health` 返回版本与组件状态；页面显示版本；组件状态枚举**待定**（§10 A10）。
+- `/health` 返回版本与组件状态；页面显示版本；枚举已冻结（§10 A10）：`status` = `ok|degraded|down`，`components` = `{icf,tables,numberRanges,approvalMatrix,cts,version}`。
 
 ### 9.2 Bootstrap 与 Migration
 
@@ -699,36 +793,37 @@ POST /api/v1/transports/link
 
 ### 9.6 回滚
 
-- 规划未定义应用级回滚流程（仅要求 runbook 覆盖「回滚」）；回滚步骤、可回滚范围与数据兼容策略**待定**（§10 A17）。
+- 回滚策略已冻结（§10 A17）：AFF 重推上一版本 + bootstrap/migration 幂等；数据不回滚；表结构变更需删除重建（CLI 无 ALTER）；详见 `docs/runbook.md`。
 
 ---
 
-## 10. 待定问题（Open Questions）
+## 10. 关键决策与 v1 决议（A1–A22）
 
-| 编号 | 问题 | 影响 | 决策点 |
-|---|---|---|---|
-| A1 | ICF 认证方式（SSO / 表单 / Basic）与未登录时 API 返回 401 JSON 还是登录页重定向 | 前端错误处理、API 契约 | M1 验证 ICF 节点时 |
-| A2 | 事务码 `ZCRW` 的类型与参数（AFF 无 URL 类型；可能参数事务 / 书签） | 入口体验 | M1 |
-| A3 | MIME 子目录与 SPA fallback 行为（非 API 路径返回 `index.html`） | 前端路由与部署 | M1 前端落地时 |
-| A4 | API 是否返回展示编号（`CR-0000000123`）及 DTO 字段全集 | 前端展示、契约冻结 | M2 前 |
-| A5 | `PRIORITY` 为 `CHAR2`，规划示例用 `MEDIUM`；优先级编码集合与通配约定 | 审批矩阵匹配、列表筛选 | M2 前必须冻结 |
-| A6 | 头部 `APPROVAL_STATE` 取值集合：M1 已用 `PENDING` / `APPROVED` / `REJECTED`；`SKIPPED` / `NONE` 与取消对象的标记方式待定 | 审批联动、列表过滤 | M2 前 |
-| A7 | 角色编码集合（`ZCRW_ROLE.ROLE` CHAR20）与角色 / 步骤映射 | 鉴权、bootstrap 种子 | M2 前 |
-| A8 | 标准权限检查项（`S_DEVELOP` / `S_CTS_ADMI` 等）与降级策略 | 安全验收 | M2 与 basis 确认 |
-| A9 | 时区基准（系统时区 / 用户时区）与 `CHAR14` ↔ ISO 8601 换算 | 计划导入、逾期计算 | M3 前 |
-| A10 | `/health` 组件状态枚举与健康判定 | 运维、自检 | M4 |
-| A11 | selfcheck 的 CTS / ICF 检查项（规划 §7.8 要求，当前未实现） | 只读验收 DoD | M3 |
-| A12 | 分页排序字段白名单集合 | 列表契约、性能 | M2 实现时 |
-| A13 | 静态资源缓存策略与版本参数 | 前端发布、缓存失效 | M1 |
-| A14 | `CHAR255` 长文本超长截断规则（审批意见 / 备注 / 描述） | 数据完整性 | M2 |
-| A15 | 写请求头缺失 / 非同源时的错误码（`VALIDATION_ERROR` 或 `FORBIDDEN`） | 安全用例 | M2 |
-| A16 | `PATCH` 局部更新语义（字段缺省 vs 显式 `null`） | API 契约、前端表单 | M2 |
-| A17 | 应用级回滚流程与数据兼容策略 | 升级运维 | M4 runbook |
-| A18 | 数据保留 / 归档策略（HIST / LOG 按年增长） | 性能、存储 | P2 |
-| A19 | 可传输包迁移路径（本地包不可跨系统部署） | 产品化部署 | P2 |
-| A20 | 索引创建方式与查询路径（abap-cli 2.0.0 无入口） | 列表性能（p95 < 1.5s） | P1 / M4 |
-| A21 | `NEW` 状态 CR 的删除语义（规划 §5.2 称可删除，API 无 DELETE 端点；物理删 / 软删 / 不提供） | 数据完整性、审计 | M2 |
-| A22 | 状态机 / 守卫是否拆出 `ZCL_CRW_WORKFLOW` 领域类、仓储层何时从 `*_SVC` 拆出；审计类命名统一为 `ZCL_CRW_HISTORY` 还是 `ZCL_CRW_AUDIT` | 分层一致性、可测试性 | M2 |
+| 编号 | 问题 | 影响 | v1 决议（2026-11-01 冻结） |
+|---|---|---|---|---|
+| A1 | ICF 认证方式与未登录时 API 行为 | 前端错误处理、API 契约 | `/api/v1/*` 返回 JSON 401 `UNAUTHORIZED`；页面路径由 ICF 登录过程重定向（Phase 2 实测回写；见 D21） |
+| A2 | 事务码 `ZCRW` 的类型与参数 | 入口体验 | 参数事务 `ZCRW` → 报表 `ZCRW_START`（`cl_gui_frontend_services=>execute` 打开 ICF URL）；P2 评估 Fiori tile（D22） |
+| A3 | MIME 子目录与 SPA fallback | 前端路由与部署 | 静态资源按路径命中；非 API GET 未命中返回 `index.html` 200；Phase 3 实测 |
+| A4 | API 展示编号与 DTO 字段全集 | 前端展示、契约冻结 | 冻结见 §6.7：路径用裸 10 位号，DTO 同时返回 `displayId` 与 `timezone` |
+| A5 | `PRIORITY` 编码集合与通配 | 审批矩阵、列表筛选 | `1` 紧急 / `2` 高 / `3` 中 / `4` 低；空 = 未定；矩阵空 = 通配（D11） |
+| A6 | 头部 `APPROVAL_STATE` 取值集合 | 审批联动、列表过滤 | `NONE` / `PENDING` / `APPROVED` / `REJECTED` / `SKIPPED`（D12，语义见 workflow W3） |
+| A7 | 角色编码集合 | 鉴权、bootstrap 种子 | `REQUESTER` / `CHANGE_MANAGER` / `DEVELOPER` / `TESTER` / `RELEASE_MANAGER` / `ADMIN`（`VIEWER` P2）（W10） |
+| A8 | 标准权限检查项与降级 | 安全验收 | v1 不做 `AUTHORITY-CHECK`：依赖 SAP 登录 + 应用角色；basis 级增强 P2 |
+| A9 | 时区基准与换算 | 计划导入、逾期计算 | 存 SAP 系统本地时间；API 返回 ISO 无偏移 + `timezone:"SAP_SYSTEM"`；不换算（D16） |
+| A10 | `/health` 组件状态枚举 | 运维、自检 | `{version,status:ok\|degraded\|down,components:{icf,tables,numberRanges,approvalMatrix,cts,version}}`；组件值 `ok`/`degraded`/`down`/`unknown` |
+| A11 | selfcheck 的 CTS / ICF 检查 | 只读验收 DoD | M2 增 ICF 节点存在与 E070 只读检查，输出 `icf=` / `cts=`；ICF 缺失 FAIL、CTS 失败 DEGRADED（D23） |
+| A12 | 分页排序字段白名单 | 列表契约、性能 | 冻结见 §6.7：`createdAt|changedAt|id|title|status|priority|dueDate` |
+| A13 | 静态资源缓存策略 | 前端发布、缓存失效 | 静态资源 `Cache-Control: no-cache` + `?v=<version>`；API `no-store`；ETag 不实现 |
+| A14 | `CHAR255` 长文本超长处理 | 数据完整性 | 入参 > 255 字符 → `VALIDATION_ERROR`，不静默截断；内部拼接文本截断 255（W26） |
+| A15 | 写请求头缺失 / 非同源错误码 | 安全用例 | `VALIDATION_ERROR`(400)（缺 `X-CRW-Request: 1` 或值不为 1） |
+| A16 | `PATCH` 局部更新语义 | API 契约、前端表单 | 只更新请求体出现的键；空字符串清空；未出现不变；`version` 必填（§6.7） |
+| A17 | 应用级回滚流程与数据兼容 | 升级运维 | runbook：AFF 重推上一版本 + bootstrap/migration 幂等；数据不回滚；表结构变更需删除重建 |
+| A18 | 数据保留 / 归档策略 | 性能、存储 | P2；runbook 说明手工导出；一期不删除任何业务行 |
+| A19 | 可传输包迁移路径 | 产品化部署 | P2；`$CRW` 本地包不可跨系统，AFF 为唯一来源，迁移时重建包后 push |
+| A20 | 索引创建方式与查询路径 | 列表性能 | v1 不建二级索引（CLI 无入口）；1 万 CR 压测后 GUI / DB02 按需建（D20） |
+| A21 | `NEW` 状态 CR 删除语义 | 数据完整性、审计 | 不提供物理/软删除 API；`NEW` 可 `CANCEL`（原因必填），审计只追加（D17） |
+| A22 | 状态机 / 仓储分层与审计类命名 | 分层一致性、可测试性 | M2 抽 `ZCL_CRW_WORKFLOW`（纯逻辑）+ `ZCL_CRW_AUTH`；`ZCL_CRW_AUDIT` 不重命名；仓储层单拆留 P2（D19） |
+
 
 ---
 

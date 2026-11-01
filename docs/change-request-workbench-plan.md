@@ -759,6 +759,25 @@ apps/change-request-workbench/
 ### 12.2 变更记录
 
 - 2026-11-01：D8/D9 按 §12.1 口径执行；D10 由 abap-cli 2.0.0 落地（commit `3dd443d`，含 ICF 2.0.0 部署）。M0 结果与剩余限制见附录 B。
+- 2026-11-01：v1 冻结决策 D11–D23 与 workflow W1–W30 全量裁决（Phase 1 完成）。
+
+### 12.3 v1 冻结决策（D11–D23，2026-11-01）
+
+| 编号 | 决策 | 结论 |
+|---|---|---|
+| D11 | `PRIORITY` 编码 | `1` 紧急 / `2` 高 / `3` 中 / `4` 低；空 = 未定；矩阵空 = 通配；UI 映射中文 |
+| D12 | `APPROVAL_STATE` 枚举 | `NONE` / `PENDING` / `APPROVED` / `REJECTED` / `SKIPPED`（语义同 workflow W3） |
+| D13 | 审批通过规则 | v1 = `ANY`（任一人）；`ALL` 留 P1 |
+| D14 | `CONFIRM_IMPORT` 来源态 | `READY_TO_IMPORT` / `IMPORT_SCHEDULED`；其余拒绝 |
+| D15 | 计划权威 | `ZCRW_SCHED` 权威；`ZCRW_CD.PLANNED_IMPORT_AT` 为快照同步 |
+| D16 | 时区 | SAP 系统本地时间 `CHAR14`；API ISO 无时区偏移 + `timezone:"SAP_SYSTEM"`；不做换算 |
+| D17 | 删除语义 | 无 DELETE API；`CANCELLED` 软取消，审计只追加 |
+| D18 | `ZCRW_HIST.OBJECT_TYPE` | 不含 `NOTE` |
+| D19 | 分层 | v1 保留 `*_SVC` 内联状态机；M2 抽 `ZCL_CRW_WORKFLOW`（纯逻辑）+ `ZCL_CRW_AUTH`；`ZCL_CRW_AUDIT` 不重命名；仓储层单拆留 P2 |
+| D20 | 索引 | v1 不建二级索引（CLI 无入口）；压测后 GUI/DB02 按需建 |
+| D21 | 未登录行为 | `/api/v1/*` JSON 401；页面重定向登录 |
+| D22 | 事务码 | 参数事务 `ZCRW` → 报表 `ZCRW_START` 打开 ICF URL；P2 评估 Fiori tile |
+| D23 | selfcheck | 增 ICF 节点与 `E070` 只读检查（ICF 缺失 FAIL；CTS 读取失败 DEGRADED） |
 
 ## 13. 下一步行动
 
@@ -861,8 +880,8 @@ apps/change-request-workbench/
 
 ## 附录 C：文档状态
 
-- `docs/architecture.md`：**已完成（2026-11-01，v1）**；含系统上下文、类地图、13 表摘要、`/api/v1` 契约、部署、安全、版本与 22 项待定（A1–A22）。
-- `docs/workflow.md`：**已完成（2026-11-01，v1）**；含 CR/CD/Task 状态机、审批、传输/ToC、导入计划、审计与错误语义，30 项待定（W1–W30）。
-- `docs/runbook.md`：待 M1 部署路径稳定后补（安装顺序、升级、权限与 SICF、号段、定时任务、回滚）。
+- `docs/architecture.md`：**已完成（2026-11-01，v1）**；含系统上下文、类地图、13 表摘要、`/api/v1` 契约、部署、安全、版本与 22 项待定（A1–A22）；待定项已冻结（v1 决议见 architecture.md §10）。
+- `docs/workflow.md`：**已完成（2026-11-01，v1）**；含 CR/CD/Task 状态机、审批、传输/ToC、导入计划、审计与错误语义，30 项待定（W1–W30）；待定项已冻结（v1 决议见 workflow.md §12）。
+- `docs/runbook.md`：**已完成（2026-11-01，v1 骨架）**；含安装顺序、静态校验、升级、权限与角色、号段、重置、回滚、运维边界与排障（M1 实测项以 `<...>` 占位）。
 - `apps/change-request-workbench/README.md`：已完成产品说明、安装/初始化、验证命令与当前状态。
 - `docs/handoff.md`：**已完成（2026-11-01）**；新会话交接文档（启动清单、完成度、分阶段任务、待冻结项、已知坑、验收清单、接续 Prompt）。
