@@ -109,6 +109,8 @@ abap push src/<file>.tabl.json --yes --json
 期望：每次 `create` 为 `status=success`、`data.activated=true`；`push` 为 `data.failed=0`、`data.results[0].activated=true`。
 说明：表只允许 `CHAR` / `NUMC` / `DATS` / `TIMS` 字段（CLI 建表 exclass 限制）；表结构变更没有 `ALTER`，只能删除重建（见 §8）。
 
+> 锁对象注意：`src/ezcrw_req.enqu.json` / `src/ezcrw_cd.enqu.json` 的 `lockParameters[].active` 必须显式为 `true`，否则生成的 `ENQUEUE_EZCRW_*` 只有 `MODE_*` 参数，服务层会 500（`形式参数 REQ_ID 不存在`）。abap-cli 2.0.1 起 `validate:aff` 会校验该字段；改完重推 ENQU 后需重新检查 FUPARAREF 中 `REQ_ID`/`CD_ID` 参数是否出现。
+
 ### 2.4 S3 创建号段对象（`NROB`）
 
 ```bash
