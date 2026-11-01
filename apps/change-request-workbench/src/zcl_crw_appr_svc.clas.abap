@@ -164,6 +164,13 @@ CLASS zcl_crw_appr_svc IMPLEMENTATION.
             iv_text = 'Could not create approval steps'.
       ENDIF.
     ENDIF.
+
+*   Notify each approver that a pending step was assigned.
+    LOOP AT lt_rows ASSIGNING FIELD-SYMBOL(<ls_pending>) WHERE appr_state = gc_state_pending.
+      IF <ls_pending>-approver IS NOT INITIAL.
+        zcl_crw_notify=>notify_approval_pending( <ls_pending> ).
+      ENDIF.
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD has_pending.
@@ -294,6 +301,11 @@ CLASS zcl_crw_appr_svc IMPLEMENTATION.
               decided_at = @lv_now
           WHERE appr_id = @<ls_row>-appr_id.
       ENDLOOP.
+      zcl_crw_notify=>notify_approval_rejected( iv_object_type = lv_object_type
+                                                iv_object_id   = lv_object_id
+                                                iv_appr_id     = iv_appr_id
+                                                iv_comment     = iv_comment ).
+
       finalize_object( iv_object_type = lv_object_type
                        iv_object_id   = lv_object_id
                        iv_approved    = abap_false

@@ -342,3 +342,53 @@ export async function downloadCsv(type, params = {}) {
   }, 0);
   return filename;
 }
+
+/* ============================ Notifications ============================ */
+
+const NOTIFICATION_STATUSES = ['ALL', 'UNREAD', 'READ'];
+const NOTIFICATION_TYPES = ['APPROVAL_PENDING', 'APPROVAL_REJECTED', 'TASK_OVERDUE', 'SCHED_OVERDUE', 'INFO'];
+
+/**
+ * List notifications: GET /notifications?status=ALL|UNREAD|READ&type=<TYPE>&page=&size=
+ * Invalid status falls back to ALL; invalid type is omitted so the server returns all types.
+ * @param {{status?:string, type?:string, page?:number, size?:number}} options
+ */
+export function listNotifications(options = {}) {
+  const opts = options || {};
+  const status = String(opts.status || '').toUpperCase();
+  const type = String(opts.type || '').toUpperCase();
+  const page = Math.max(1, Math.floor(Number(opts.page) || 1));
+  const size = Math.min(200, Math.max(1, Math.floor(Number(opts.size) || 20)));
+  return api.get('/notifications', {
+    status: NOTIFICATION_STATUSES.indexOf(status) >= 0 ? status : 'ALL',
+    type: NOTIFICATION_TYPES.indexOf(type) >= 0 ? type : '',
+    page,
+    size
+  });
+}
+
+/** Unread count (read-only): GET /notifications/unread-count -> data `{count}`. */
+export function unreadNotificationCount() {
+  return api.get('/notifications/unread-count');
+}
+
+/** Trigger one refresh scan: POST /notifications/refresh -> data `{created,unread}`. */
+export function refreshNotifications() {
+  return api.post('/notifications/refresh', {});
+}
+
+/** Mark one notification as read: POST /notifications/{id}/read -> data `{id,status,unread}`. */
+export function markNotificationRead(id) {
+  const key = id === null || id === undefined ? '' : String(id).trim();
+  if (!key) {
+    return Promise.reject(
+      new ApiError({ status: 0, code: 'VALIDATION_ERROR', message: '通知 ID 缺失，无法标记为已读。' })
+    );
+  }
+  return api.post('/notifications/' + encodeURIComponent(key) + '/read', {});
+}
+
+/** Mark all notifications as read: POST /notifications/read-all -> data `{updated,unread}`. */
+export function markAllNotificationsRead() {
+  return api.post('/notifications/read-all', {});
+}

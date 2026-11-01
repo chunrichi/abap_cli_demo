@@ -186,6 +186,8 @@ CLASS zcl_crw_api_router IMPLEMENTATION.
         zcl_crw_api_report=>dispatch( io_ctx = io_ctx it_segments = lt_clean ).
       WHEN 'config'.
         zcl_crw_api_config=>dispatch( io_ctx = io_ctx it_segments = lt_clean ).
+      WHEN 'notifications'.
+        zcl_crw_api_notify=>dispatch( io_ctx = io_ctx it_segments = lt_clean ).
       WHEN OTHERS.
         RAISE EXCEPTION TYPE zcx_crw_error
           EXPORTING iv_code = 'NOT_FOUND' iv_text = |Unknown resource { lv_resource }|.

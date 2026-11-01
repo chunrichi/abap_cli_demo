@@ -75,6 +75,7 @@ export function table(options = {}) {
     .map((row) => {
       const href = typeof options.rowHref === 'function' ? options.rowHref(row) : '';
       const rowClass = typeof options.rowClass === 'function' ? options.rowClass(row) : '';
+      const rowClasses = [href ? 'clickable' : '', rowClass || ''].filter(Boolean).join(' ');
       const cells = columns
         .map((col) => {
           const classes = [col.align === 'right' ? 'num' : '', col.className || ''].filter(Boolean).join(' ');
@@ -83,8 +84,8 @@ export function table(options = {}) {
           return `<td class="${classes}">${content}</td>`;
         })
         .join('');
-      return `<tr${href ? ` data-href="${ui.esc(href)}" class="clickable"` : ''}${
-        rowClass ? ` class="${ui.esc(rowClass)}"` : ''
+      return `<tr${href ? ` data-href="${ui.esc(href)}"` : ''}${
+        rowClasses ? ` class="${ui.esc(rowClasses)}"` : ''
       }>${cells}</tr>`;
     })
     .join('');

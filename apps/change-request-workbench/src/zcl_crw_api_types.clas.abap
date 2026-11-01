@@ -147,6 +147,23 @@ CLASS zcl_crw_api_types DEFINITION PUBLIC FINAL CREATE PUBLIC.
            END OF ty_approval.
     TYPES tt_approvals TYPE STANDARD TABLE OF ty_approval WITH EMPTY KEY.
 
+*   In-app notification.
+    TYPES: BEGIN OF ty_notification,
+             id               TYPE string,
+             notify_type      TYPE string,
+             object_type      TYPE string,
+             object_id        TYPE string,
+             object_display_id TYPE string,
+             title            TYPE string,
+             message          TYPE string,
+             link_page        TYPE string,
+             severity         TYPE string,
+             status           TYPE string,
+             created_at       TYPE string,
+             read_at          TYPE string,
+           END OF ty_notification.
+    TYPES tt_notifications TYPE STANDARD TABLE OF ty_notification WITH EMPTY KEY.
+
 *   Transport.
     TYPES: BEGIN OF ty_transport_object,
              pgmid         TYPE string,

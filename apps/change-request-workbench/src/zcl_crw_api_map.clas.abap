@@ -42,6 +42,10 @@ CLASS zcl_crw_api_map DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING is_row       TYPE zcrw_appr_cfg
       RETURNING VALUE(rs_dto) TYPE zcl_crw_api_types=>ty_matrix_row.
 
+    CLASS-METHODS notification
+      IMPORTING is_row       TYPE zcrw_notify
+      RETURNING VALUE(rs_dto) TYPE zcl_crw_api_types=>ty_notification.
+
     CLASS-METHODS transport
       IMPORTING is_row       TYPE zcrw_tr
       RETURNING VALUE(rs_dto) TYPE zcl_crw_api_types=>ty_transport.
@@ -204,6 +208,22 @@ CLASS zcl_crw_api_map IMPLEMENTATION.
     rs_dto-req_type      = is_row-req_type.
     rs_dto-priority      = is_row-priority.
     rs_dto-mandatory     = is_row-mandatory.
+  ENDMETHOD.
+
+  METHOD notification.
+    rs_dto-id                = is_row-notify_id.
+    rs_dto-notify_type       = is_row-notify_type.
+    rs_dto-object_type       = is_row-object_type.
+    rs_dto-object_id         = is_row-object_id.
+    rs_dto-object_display_id = zcl_crw_notify=>object_display_id( iv_object_type = CONV string( is_row-object_type )
+                                                                  iv_object_id   = CONV string( is_row-object_id ) ).
+    rs_dto-title             = is_row-title.
+    rs_dto-message           = is_row-message.
+    rs_dto-link_page         = is_row-link_page.
+    rs_dto-severity          = is_row-severity.
+    rs_dto-status            = is_row-status.
+    rs_dto-created_at        = zcl_crw_json=>format_timestamp( is_row-created_at ).
+    rs_dto-read_at           = zcl_crw_json=>format_timestamp( is_row-read_at ).
   ENDMETHOD.
 
   METHOD transport.

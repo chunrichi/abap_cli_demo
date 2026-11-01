@@ -17,6 +17,7 @@ CLASS zcl_crw_selfcheck IMPLEMENTATION.
     DATA lv_messages  TYPE i.
     DATA lv_roles     TYPE i.
     DATA lv_approvals TYPE i.
+    DATA lv_notifications TYPE i.
     DATA lv_icf       TYPE i.
     DATA lv_cts       TYPE i.
     DATA lv_icf_state TYPE string.
@@ -26,7 +27,7 @@ CLASS zcl_crw_selfcheck IMPLEMENTATION.
     lt_tables = VALUE #( ( 'ZCRW_REQ' ) ( 'ZCRW_CD' ) ( 'ZCRW_TASK' ) ( 'ZCRW_TR' )
                          ( 'ZCRW_SCHED' ) ( 'ZCRW_APPR' ) ( 'ZCRW_HIST' ) ( 'ZCRW_NOTE' )
                          ( 'ZCRW_CYCLE' ) ( 'ZCRW_ROLE' ) ( 'ZCRW_APPR_CFG' )
-                         ( 'ZCRW_VERSION' ) ( 'ZCRW_LOG' ) ).
+                         ( 'ZCRW_VERSION' ) ( 'ZCRW_LOG' ) ( 'ZCRW_NOTIFY' ) ).
 
 *   Every application table must be readable.
     LOOP AT lt_tables ASSIGNING FIELD-SYMBOL(<lv_table>).
@@ -60,6 +61,10 @@ CLASS zcl_crw_selfcheck IMPLEMENTATION.
     SELECT COUNT(*)
       FROM zcrw_appr_cfg
       INTO @lv_approvals.
+
+    SELECT COUNT(*)
+      FROM zcrw_notify
+      INTO @lv_notifications.
 
 *   ICF node must exist: the SICF object is registered in TADIR.
     SELECT COUNT(*)
@@ -101,9 +106,10 @@ CLASS zcl_crw_selfcheck IMPLEMENTATION.
     ENDIF.
 
     IF lv_failures IS INITIAL.
-      out->write( |CRW_SELFCHECK_OK tables=13 rows={ lv_rows } intervals={ lv_intervals }| &&
+      out->write( |CRW_SELFCHECK_OK tables=14 rows={ lv_rows } intervals={ lv_intervals }| &&
                   | version={ lv_version } messages={ lv_messages } roles={ lv_roles }| &&
-                  | approvals={ lv_approvals } icf={ lv_icf_state } cts={ lv_cts_state }| ).
+                  | approvals={ lv_approvals } notifications={ lv_notifications }| &&
+                  | icf={ lv_icf_state } cts={ lv_cts_state }| ).
     ELSE.
       out->write( |CRW_SELFCHECK_FAIL{ lv_failures }| ).
     ENDIF.

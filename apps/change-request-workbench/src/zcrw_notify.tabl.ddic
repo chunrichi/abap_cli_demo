@@ -1,0 +1,23 @@
+@EndUserText.label : 'CRW in-app notification'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_notify {
+  key client      : abap.clnt not null;
+  key notify_id   : abap.char(32) not null;
+      user_id     : abap.char(12);
+      notify_type : abap.char(20);
+      object_type : abap.char(10);
+      object_id   : abap.char(20);
+      title       : abap.char(80);
+      message     : abap.char(255);
+      link_page   : abap.char(80);
+      severity    : abap.char(10);
+      status      : abap.char(10);
+      dedup_key   : abap.char(80);
+      source      : abap.char(10);
+      created_at  : abap.char(14);
+      created_by  : abap.char(12);
+      read_at     : abap.char(14);
+}

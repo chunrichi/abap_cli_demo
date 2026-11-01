@@ -30,7 +30,7 @@ abap doctor --json
 
 | 项目 | 状态 | 说明 |
 |---|---|---|
-| [变更请求工作台（CRW）](apps/change-request-workbench/README.md) | M4（M1–M4 已交付） | 变更请求全流程工作台；产品前缀 `ZCRW_`，包 `$CRW`；状态与验证见 [应用 README](apps/change-request-workbench/README.md)，安装见 [runbook](apps/change-request-workbench/docs/runbook.md)，规划见 [docs/change-request-workbench-plan.md](docs/change-request-workbench-plan.md) |
+| [变更请求工作台（CRW）](apps/change-request-workbench/README.md) | M4 + P2 通知/提醒（已交付） | 变更请求全流程工作台；产品前缀 `ZCRW_`，包 `$CRW`；M1–M4 已交付，P2 站内通知中心 + 提醒报表（SM36）/P2 basis 设计已落地；状态与验证见 [应用 README](apps/change-request-workbench/README.md)，安装见 [runbook](apps/change-request-workbench/docs/runbook.md)，P2 basis 设计见 [p2-basis](apps/change-request-workbench/docs/p2-basis.md)，规划见 [docs/change-request-workbench-plan.md](docs/change-request-workbench-plan.md) |
 
 ## 仓库结构
 

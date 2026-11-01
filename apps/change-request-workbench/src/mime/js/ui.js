@@ -310,6 +310,29 @@ export const SCHEDULE_STATUS = {
   CANCELLED: { zh: '已取消', tone: 'neutral' }
 };
 
+/** In-app notification type (notifyType). */
+export const NOTIFY_TYPE = {
+  APPROVAL_PENDING: { zh: '待审批', tone: 'warn' },
+  APPROVAL_REJECTED: { zh: '审批驳回', tone: 'danger' },
+  TASK_OVERDUE: { zh: '任务逾期', tone: 'danger' },
+  SCHED_OVERDUE: { zh: '计划逾期', tone: 'danger' },
+  INFO: { zh: '一般通知', tone: 'info' }
+};
+
+/** In-app notification severity. */
+export const NOTIFY_SEVERITY = {
+  INFO: { zh: '提示', tone: 'neutral' },
+  WARN: { zh: '警告', tone: 'warn' },
+  CRITICAL: { zh: '严重', tone: 'danger' }
+};
+
+/** In-app notification read state (status). */
+export const NOTIFY_STATE = {
+  UNREAD: { zh: '未读', tone: 'info' },
+  READ: { zh: '已读', tone: 'neutral' },
+  DISMISSED: { zh: '已忽略', tone: 'neutral' }
+};
+
 export const ACTION_LABEL = {
   SUBMIT: '提交审批',
   WITHDRAW: '撤回',
@@ -425,6 +448,21 @@ export function retrofitBadge(state) {
 
 export function scheduleStatusBadge(status) {
   const entry = dictEntry(SCHEDULE_STATUS, status, status || '未知');
+  return badge(entry.zh, entry.tone);
+}
+
+export function notifyTypeBadge(type) {
+  const entry = dictEntry(NOTIFY_TYPE, type, type || '通知');
+  return badge(entry.zh, entry.tone);
+}
+
+export function notifySeverityBadge(severity) {
+  const entry = dictEntry(NOTIFY_SEVERITY, severity, severity || '提示');
+  return badge(entry.zh, entry.tone);
+}
+
+export function notifyStatusBadge(status) {
+  const entry = dictEntry(NOTIFY_STATE, status, status || '未知');
   return badge(entry.zh, entry.tone);
 }
 

@@ -151,7 +151,23 @@ CLASS zcl_crw_demo_data IMPLEMENTATION.
     zcl_crw_request_svc=>notes_add( iv_req_id = lv_req_active
                                     iv_text = 'QAS 验证通过，等待发布窗口。' ).
 
-    rv_summary = |requests=3 cds=1 tasks=2 schedules={ COND i( WHEN ls_sched-sched_id IS NOT INITIAL THEN 1 ELSE 0 ) }|.
+*   Seed a few in-app notifications for the current user (P2 notification center).
+    zcl_crw_notify=>refresh_for_user( CONV string( sy-uname ) ).
+    TRY.
+        zcl_crw_notify=>emit( iv_user        = CONV string( sy-uname )
+                                iv_type        = zcl_crw_notify=>gc_type_info
+                                iv_title       = '演示通知：通知中心已启用'
+                                iv_message     = '审批待办、逾期任务与导入计划提醒会集中显示在这里。'
+                                iv_link_page   = '#/notifications'
+                                iv_dedup_key   = |DEMO:INFO:{ sy-uname }|
+                                iv_source      = zcl_crw_notify=>gc_source_api ).
+      CATCH zcx_crw_error.
+*       Demo notifications are best effort only.
+    ENDTRY.
+    COMMIT WORK AND WAIT.
+
+    rv_summary = |requests=3 cds=1 tasks=2 schedules={ COND i( WHEN ls_sched-sched_id IS NOT INITIAL THEN 1 ELSE 0 ) }| &&
+                 | notifications={ zcl_crw_notify=>unread_count( CONV string( sy-uname ) ) }|.
   ENDMETHOD.
 
   METHOD submit_request.
