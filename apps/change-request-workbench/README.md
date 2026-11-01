@@ -4,6 +4,7 @@
 > 这是**真实应用**，不是 demo；不套用 demo 的 `DMA` 命名与编号，契约见仓库 [`AGENTS.md`](../../AGENTS.md) §4A。
 > 产品规划与决策记录：[docs/change-request-workbench-plan.md](../../docs/change-request-workbench-plan.md)。
 > 架构与流程契约：[docs/architecture.md](docs/architecture.md)、[docs/workflow.md](docs/workflow.md)（v1，含待定项）。
+> 交接文档（新会话从这里开始）：[docs/handoff.md](docs/handoff.md)。
 
 在 SAP 内管理「变更请求 → 变更文档 → 任务/子任务 → 传输（含 ToC）→ 测试 → 计划导入 → 关闭」的全流程工作台，提供工作清单、详情、审批、传输视图、导入计划、仪表盘、报表与审计。
 

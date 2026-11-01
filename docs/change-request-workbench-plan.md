@@ -808,7 +808,7 @@ apps/change-request-workbench/
 | CTS 只读 | **已通过**：`E070` / `E071` / `E07T` 可读；`TMSBUFFER` 字段可查 |
 | NROB | **已通过（CLI 修复后）**：`ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK` 已建；TNRO 3 行，`DTELSOBJ` 为空 |
 | MSAG | **已通过（CLI 修复后）**：`ZCRW_MSG` 已建（ADT 失败自动回退 ICF）；T100 8 条 |
-| CLI 本地修复 | NROB 空 subType + MSAG ADT→ICF fallback（工作区外 CLI 仓库 commit `c1367d6`）；完整单测 229 文件 / 2201 用例全绿 |
+| CLI 本地修复 | NROB 空 subType + MSAG ADT→ICF fallback（工作区外 CLI 仓库，当前未提交；原 `c1367d6` 被外部 reset）；完整单测 229 文件 / 2201 用例全绿 |
 | MIME/ICF/TRAN/ENQU | ENQU 两个锁对象已建；MIME/ICF/TRAN 留到 M1 与真实 handler/前端一起验证 |
 | 本机 Node | 宿主已升级到 Node v24.22.2（CLI 2.0.0 的 Node 24 LTS 要求）；`tmp/` 下的 Electron Node wrapper 仅为历史 fallback，不再需要 |
 
@@ -857,7 +857,7 @@ apps/change-request-workbench/
 | 2 | MSAG create 报 `No URI-Mapping defined for URI` | 通道探测按 release（789）选 ADT，但本系统 ADT 无 message-class 端点（`profile test`: msag.adt=absent, msag.icf=ok） | 本地 CLI 的 create / pull / push MSAG 在 ADT 端点缺失时自动回退 ICF | **已修复并验证**：`ZCRW_MSG` 已建，T100 8 条 |
 | 3 | 建表时 deep / 数值类型报 enhancement category 错误 | ICF 建表 handler 的 exclass 固定为 '2'（Can Be Enhanced (Char. Type)），未从 AFF 读取 | 设计改为 char-only 类型（见 §4.2） | **已按约束落地**；后续可推动 CLI 支持 exclass，再引入 deep/数值类型 |
 
-**说明**：1/2 的 CLI 修复在工作区外的 `vibe_with_abap` 本地仓库，已提交 `c1367d6`；完整单测 229 文件 / 2201 用例全绿；升级 CLI 后需重新 `abap deploy --yes`。
+**说明**：1/2 的 CLI 修复在工作区外的 `vibe_with_abap` 本地仓库，当前未提交（原 `c1367d6` 被外部 reset，见 handoff）；完整单测 229 文件 / 2201 用例全绿；升级 CLI 后需重新 `abap deploy --yes`。
 
 ## 附录 C：文档状态
 
@@ -865,3 +865,4 @@ apps/change-request-workbench/
 - `docs/workflow.md`：**已完成（2026-11-01，v1）**；含 CR/CD/Task 状态机、审批、传输/ToC、导入计划、审计与错误语义，30 项待定（W1–W30）。
 - `docs/runbook.md`：待 M1 部署路径稳定后补（安装顺序、升级、权限与 SICF、号段、定时任务、回滚）。
 - `apps/change-request-workbench/README.md`：已完成产品说明、安装/初始化、验证命令与当前状态。
+- `docs/handoff.md`：**已完成（2026-11-01）**；新会话交接文档（启动清单、完成度、分阶段任务、待冻结项、已知坑、验收清单、接续 Prompt）。
