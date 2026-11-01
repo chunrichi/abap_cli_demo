@@ -251,20 +251,20 @@ bash scripts/check-secrets.sh
 - 每季度复核：可见性、分支保护状态、协作者权限、第三方许可、扫描脚本自身有效性。
 - 安全事件：误推敏感内容 → 立即停止推送 → 告知维护者 → 评估历史重写（需明确批准 + 先备份）。
 
-## 9. 完成记录（由 Lead 回填）
+## 9. 完成记录
 
-> 发布完成后用实测值替换下表 `<待回填>`；未验证前不要填写计划值或推测结论。
+> 发布执行：2026-11-02（Asia/Shanghai）。下表为实测值；未验证项不填计划值。
 
 | 项 | 实测值 |
 |---|---|
-| GitHub URL | `<待回填>` |
-| 可见性 | `<待回填>` |
-| 默认分支 | `<待回填>` |
-| 已推送提交数 / 工作区状态 | `<待回填>` |
-| Issues / Projects / Discussions | `<待回填：开 / 关 / 关>` |
-| About 描述 / topics | `<待回填：留空 / 未设置>` |
-| 分支保护状态 | `<待回填：状态 A 已启用（classic）/ 状态 B 降级（约定 + hook）>` |
-| 敏感扫描结果（handoff §6 清单） | `<待回填：运行命令、退出码、告警项>` |
-| 首次 push 结果 | `<待回填>` |
-| 首次 PR 演练结果 | `<待回填：PR 号、合并方式、分支删除、直推被拒验证>` |
-| 后续 CI 落地 | `<待回填：未开始 / 计划中>` |
+| GitHub URL | <https://github.com/chunrichi/abap_cli_demo> |
+| 可见性 | public |
+| 默认分支 | `main` |
+| 已推送提交数 / 工作区状态 | `main` 18 个提交（PR #1 squash 合并后；本记录随 PR #2 合入后为 19）；工作区 clean |
+| Issues / Projects / Discussions | 开 / 关 / 关（Wiki 保持默认开启） |
+| About 描述 / topics | 留空 / 未设置 |
+| 分支保护状态 | 状态 A 已启用（classic）：PR 必需（approvals=0）、`enforce_admins=true`、force push 禁用、删除禁用 |
+| 敏感扫描结果（handoff §6 清单） | `bash scripts/check-secrets.sh` → exit 0（0 阻断 / 0 告警）；全历史无内网地址、SAP 用户名、凭证、私钥、真实 transport 号；最大 blob 222787 B；9 张截图均 ≤ 500 KB |
+| 首次 push 结果 | `gh repo create chunrichi/abap_cli_demo --public --source=. --remote=origin --push` 成功；`origin/main` = `933b0e4`（17 提交） |
+| 首次 PR 演练结果 | PR #1 <https://github.com/chunrichi/abap_cli_demo/pull/1>：按 PR 模板逐项填写 → squash 合并为 `fefb935` → 远端/本地分支已删除；直推 `main` 探测被拒（`GH006: Changes must be made through a pull request`），本地探针已 reset |
+| 后续 CI 落地 | 未开始（D8 后置；本阶段仅本地静态检查） |
