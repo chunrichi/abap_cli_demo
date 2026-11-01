@@ -57,7 +57,7 @@ abap run ZCL_CRW_M1_SMOKE --json          # 写数据，但会自动清理
 - M1–M5 全部走通：标准变更全流程 + 紧急/管理类型的 P1 项 + 站内通知与提醒扫描。
 - CR/CD/Task 状态机、审批、审计、角色鉴权、乐观锁、通知去重可被 ABAP Unit 与只读 `select` 验证。
 - CTS 只读集成（D4/D8：实现但不做 live 验证），导入计划可用（D9：只提醒、不执行 TMS），通知可用（站内即时 + 日报表扫描）。
-- 主页面（含 `#/notifications`）可用并有脱敏截图（M5 新 UI 截图待重拍）；`docs/runbook.md` 可安装/升级。
+- 主页面（含 `#/notifications`）可用并有脱敏截图（M5 已重拍 9 张，见 README）；`docs/runbook.md` 可安装/升级。
 - `abap check content` / `validate:aff` / `abap test` / selfcheck / smoke / 只读断言全部通过；连续两次一致。
 - 无业务数据残留、无 URL/凭证/真实数据入库、不碰生产、不 release transport。
 
@@ -87,7 +87,7 @@ abap run ZCL_CRW_M1_SMOKE --json          # 写数据，但会自动清理
 
 ### 2.2 剩余（P2，详见 §14.3）
 
-M1–M5 已于 2026-11-02 全部交付（API/UI/审批/锁/CTS/计划/报表/配置/迁移/通知/截图）。剩余为 P2：可传输包迁移（A19 / 工作项 A3）、索引（A20 / D20 / 工作项 D2）、数据归档（A18）、权限对象（A8）、Fiori tile、邮件通道启用（SMTP/SCOT 待 basis）、SM36 每日作业 `ZCRW_REMIND`（待 basis）、审批 ALL/改派/补审、ADM 检查清单、配置编辑、报表日期参数、M5 新 UI 截图重拍。
+M1–M5 已于 2026-11-02 全部交付（API/UI/审批/锁/CTS/计划/报表/配置/迁移/通知/截图）。剩余为 P2：可传输包迁移（A19 / 工作项 A3）、索引（A20 / D20 / 工作项 D2）、数据归档（A18）、权限对象（A8）、Fiori tile、邮件通道启用（SMTP/SCOT 待 basis）、SM36 每日作业 `ZCRW_REMIND`（待 basis）、审批 ALL/改派/补审、ADM 检查清单、配置编辑、报表日期参数。
 
 ### 2.3 仓库/提交
 
@@ -144,7 +144,7 @@ apps/change-request-workbench/src/
 ```
 
 - 类文件用**单文件** `.clas.abap`；不要提交 CLI 自动生成的 `.clas.definitions.abap` / `.implementations.abap` / `.macros.abap` / `.clas.json` 等拆分副产物。
-- 前端资产在 `src/mime/`；截图放 `screenshots/`（M5 新 UI 待重拍）。
+- 前端资产在 `src/mime/`；截图放 `screenshots/`（M5 已重拍 9 张）。
 - `tmp/` 已 gitignore；不要提交拉取副产物。
 
 ---
@@ -406,7 +406,7 @@ P0 端点（完整 40 个见 architecture §6.2）：
 - ABAP 类缓存：`abap push` 后 `abap run` 可能仍执行旧版本，`abap session reset` 后重跑可刷新（HTTP 侧同理，必要时重激活 handler）。
 - `ZCRW_HIST.OBJECT_ID` 为 CHAR20，放不下 32 字符的计划 UUID：动态/历史按前缀回查（已实现）。
 - `abap-cli` 在 HOME 不可写时会回退 workspace session store；为稳定写路径本会话使用了临时 HOME + fixture keychain + derived session key（`tmp/abapx` 属历史做法，gitignored，不属交付物）。
-- **M5 通知**：`dedup_key` 去重为「一次事件一条」（已读 / 已忽略不重建）；`deliver_email` 是预留空实现，SMTP 未配置不发信；提醒报表会写 `ZCRW_NOTIFY`（属运维步骤）；M5 新 UI 截图待人工重拍。
+- **M5 通知**：`dedup_key` 去重为「一次事件一条」（已读 / 已忽略不重建）；`deliver_email` 是预留空实现，SMTP 未配置不发信；提醒报表会写 `ZCRW_NOTIFY`（属运维步骤）。
 
 ### 14.3 P2 待办（M5 后）
 
@@ -444,6 +444,6 @@ P0 端点（完整 40 个见 architecture §6.2）：
 | 通知探测 | `abap run ZCL_CRW_NOTIFY --json` | `CRW_NOTIFY_OK rows=0 unread=0`（实测，复位后；演示数据后 rows=2 unread=2） |
 | 提醒报表 | `abap run-report ZCRW_REMIND_JOB --json` | `ZCRW_REMIND_JOB_OK approvals=0 tasks=0 schedules=0 total=0`（实测；演示数据刷新后运行，去重生效） |
 | HTTP | `GET /notifications`、`/notifications/unread-count` 等 | 200 + 契约 JSON（API 控制器层实测通过；浏览器 HTTP 待人工复核） |
-| UI | `#/notifications` + 顶栏铃铛 | 页面可见、标记已读生效（人工验证；截图待重拍） |
+| UI | `#/notifications` + 顶栏铃铛 | 页面可见、标记已读生效（M5 截图已重拍 9 张；浏览器交互回归待人工） |
 
-**未完成 / 边界**：SMTP 未配置（邮件不发）；SM36 作业定义未建（basis）；`DISMISSED` 枚举预留、无忽略端点；包迁移 / 索引 / 归档 / 权限对象 / Fiori 只出设计（[`p2-basis.md`](p2-basis.md)）；M5 新 UI 截图待人工重拍。
+**未完成 / 边界**：SMTP 未配置（邮件不发）；SM36 作业定义未建（basis）；`DISMISSED` 枚举预留、无忽略端点；包迁移 / 索引 / 归档 / 权限对象 / Fiori 只出设计（[`p2-basis.md`](p2-basis.md)）。

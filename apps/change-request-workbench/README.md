@@ -80,17 +80,15 @@ HTTP 自检（浏览器登录后，用运行环境地址替换 `<host>`；仓库
 
 ## 主页面截图
 
-`screenshots/`（1440×1000，演示数据 + 脱敏：页面内用户显示为 `DEMO_*`，无系统地址/客户端）：
+`screenshots/`（1440×1000，M5 / v1.2.0 实拍，演示数据 + 脱敏：页面内用户显示为 `DEMO_*`，无系统地址/客户端；顶栏含通知铃铛与未读数）：
 
-> **M5 新 UI 截图待人工重拍**：本轮新增顶栏通知铃铛与 `#/notifications` 页面，agent 无浏览器会话，`screenshots/` 仍是 M1 资产；重拍并脱敏后替换本节与截图文件。
+| 工作台 | 通知中心 | 通知铃铛面板 |
+|---|---|---|
+| ![工作台](screenshots/crw-dashboard.png) | ![通知中心](screenshots/crw-notifications.png) | ![通知铃铛](screenshots/crw-notifications-bell.png) |
+| ![请求列表](screenshots/crw-requests.png) | ![请求详情](screenshots/crw-request-detail.png) | ![变更文档详情](screenshots/crw-change-document-detail.png) |
+| ![审批中心](screenshots/crw-approvals.png) | ![导入计划](screenshots/crw-schedule.png) | ![报表](screenshots/crw-reports.png) |
 
-![工作台](screenshots/crw-m1-dashboard.png)
-![请求列表](screenshots/crw-m1-requests.png)
-![请求详情](screenshots/crw-m1-request-detail.png)
-![变更文档详情](screenshots/crw-m1-change-document-detail.png)
-![审批中心](screenshots/crw-m1-approvals.png)
-![导入计划](screenshots/crw-m1-schedule.png)
-![报表](screenshots/crw-m1-reports.png)
+> 截图与当前 `src/` + 已部署的 MIME 资产一致；脱敏口径（无 URL/client/真实数据）见 [runbook](docs/runbook.md) §10。
 
 ## 目录
 
@@ -112,7 +110,7 @@ apps/change-request-workbench/
 - 审批规则 v1 = ANY（任一人通过）；ALL/改派/事后补审为 P2。
 - 索引未建（A20 / D20，后置）、数据归档未做（A18，只设计）、权限对象未建（A8，只设计）；见 [docs/p2-basis.md](docs/p2-basis.md)。
 - 配置页面只读；周期/矩阵/角色维护走 bootstrap 或 SAP GUI（P2）。
-- UI 截图来自 SPA 资产 + 演示数据，用户标识替换为 `DEMO_*`；系统地址不出现在截图与仓库；M5 通知 UI 截图待重拍。
+- UI 截图来自 SPA 资产 + 演示数据，用户标识替换为 `DEMO_*`；系统地址不出现在截图与仓库；M5 截图（含通知中心/铃铛）已重拍。
 
 ## 工作约定
 
@@ -125,4 +123,4 @@ apps/change-request-workbench/
 
 1. P2 basis 类项：可传输包迁移、二级索引、数据归档、权限对象、Fiori/FLP（本轮只出设计，见 [docs/p2-basis.md](docs/p2-basis.md)）。
 2. 邮件通道（basis 配 SCOT 后启用 `deliver_email`）与 SM36 每日作业 `ZCRW_REMIND`（basis 配置）。
-3. M5 新 UI 截图人工重拍；审批 ALL 规则/改派/事后补审；ADM 检查清单；配置页面编辑；报表日期范围参数化。
+3. 审批 ALL 规则/改派/事后补审；ADM 检查清单；配置页面编辑；报表日期范围参数化。
