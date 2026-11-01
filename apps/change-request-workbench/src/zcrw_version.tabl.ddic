@@ -1,0 +1,14 @@
+@EndUserText.label : 'CRW version and migration'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_version {
+  key client     : abap.clnt not null;
+  key component  : abap.char(20) not null;
+  key version_no : abap.char(10) not null;
+      applied_at : abap.char(14);
+      applied_by : abap.char(12);
+      transport  : abap.char(10);
+      notes      : abap.char(255);
+}

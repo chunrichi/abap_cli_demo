@@ -1,6 +1,6 @@
 # abap-cli DMA Demo 示例库
 
-用 prompt 驱动 agent 调用 `abap` CLI，在 SAP 里落地可复现的 ABAP demo；每个 demo 只有 `README.md` + `src/`（前端页面 demo 另加 `screenshots/`）。
+用 prompt 驱动 agent 调用 `abap` CLI，在 SAP 里落地可复现的 ABAP demo；每个 demo 只有 `README.md` + `src/`（前端页面 demo 另加 `screenshots/`）。另有应用型项目放在 [`apps/`](apps/)（见 [`AGENTS.md`](AGENTS.md) §4A）。
 
 ## 快速开始
 
@@ -19,15 +19,26 @@ abap doctor --json
 |---|---|---|---|---|---|
 | [01](demos/01-icf-mime-stats/README.md) | ICF + MIME 统计看板 | intermediate | `ZCL_DMA_01_STATS` / `ZCL_DMA_01_STATS_CLEANUP` (CLAS)、`ZDMA_01_STATS` (HTTP)、MIME `/zdma_01_stats` | doctor, create, check, push, mime create/push, run, select, delete | 2026-11-01 |
 
+## 应用项目
+
+真实应用（非 demo），按 [`AGENTS.md`](AGENTS.md) §4A 契约管理。
+
+| 项目 | 状态 | 说明 |
+|---|---|---|
+| [变更请求工作台（CRW）](apps/change-request-workbench/README.md) | M0（规划与验证中） | 变更请求全流程工作台；产品前缀 `ZCRW_`，包 `$CRW`；规划见 [docs/change-request-workbench-plan.md](docs/change-request-workbench-plan.md) |
+
 ## 仓库结构
 
 - [`AGENTS.md`](AGENTS.md)：仓库合约（命名、目录、验证、安全边界）
 - [`docs/demo-library-plan.md`](docs/demo-library-plan.md)：示例清单与路线图
+- [`docs/change-request-workbench-plan.md`](docs/change-request-workbench-plan.md)：变更请求工作台（应用型项目）规划草案
 - [`demos/`](demos/)：每个 demo 一个目录
+- [`apps/`](apps/)：应用型项目（非 demo），当前为变更请求工作台（CRW）
 - [`.agents/skills/`](.agents/skills/)：abap-cli 技能（DSH 项目级技能根）
 
 ## 约定
 
-- 对象名以 `Z` 开头且包含 `DMA`，默认 `$TMP` 包，可删除重建。
+- demo 对象名以 `Z` 开头且包含 `DMA`，默认 `$TMP` 包，可删除重建。
 - 所有命令 `--json`；写命令带 `--yes`；`$TMP` 必须写成 `'$TMP'`。
 - 验证命令只读；验证结果写进 demo README，不保存证据文件。
+- 应用型项目在 [`apps/`](apps/)（契约见 [`AGENTS.md`](AGENTS.md) §4A），不使用 `DMA` 命名与 `$TMP` 包；当前项目为变更请求工作台（CRW）。

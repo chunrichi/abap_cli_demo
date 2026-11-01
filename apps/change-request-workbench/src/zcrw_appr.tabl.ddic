@@ -1,0 +1,17 @@
+@EndUserText.label : 'CRW approval step'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_appr {
+  key client      : abap.clnt not null;
+  key appr_id     : abap.char(32) not null;
+      object_type : abap.char(10);
+      object_id   : abap.char(10);
+      step_no     : abap.numc(2);
+      approver    : abap.char(12);
+      appr_state  : abap.char(10);
+      decided_at  : abap.char(14);
+      comment_txt  : abap.char(255);
+      created_at  : abap.char(14);
+}

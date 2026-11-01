@@ -1,0 +1,25 @@
+@EndUserText.label : 'CRW change document'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_cd {
+  key client            : abap.clnt not null;
+  key cd_id             : abap.char(10) not null;
+      req_id            : abap.char(10);
+      cycle_id          : abap.char(16);
+      title             : abap.char(80);
+      status            : abap.char(20);
+      owner             : abap.char(12);
+      dev_lead          : abap.char(12);
+      test_lead         : abap.char(12);
+      target_sys        : abap.char(10);
+      planned_import_at : abap.char(14);
+      approval_state    : abap.char(10);
+      version           : abap.numc(6);
+      created_at        : abap.char(14);
+      created_by        : abap.char(12);
+      changed_at        : abap.char(14);
+      changed_by        : abap.char(12);
+      closed_at         : abap.char(14);
+}

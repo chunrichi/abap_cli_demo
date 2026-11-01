@@ -1,0 +1,24 @@
+@EndUserText.label : 'CRW transport link and snapshot'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_tr {
+  key client              : abap.clnt not null;
+  key trkorr              : abap.char(10) not null;
+      cd_id               : abap.char(10);
+      task_id             : abap.char(10);
+      tr_kind             : abap.char(10);
+      tarsystem           : abap.char(10);
+      tr_status           : abap.char(1);
+      tr_status_txt       : abap.char(30);
+      released_at         : abap.char(14);
+      import_scheduled_at : abap.char(14);
+      imported_at         : abap.char(14);
+      retrofit_state      : abap.char(10);
+      last_sync_at        : abap.char(14);
+      sync_state          : abap.char(10);
+      linked_at           : abap.char(14);
+      linked_by           : abap.char(12);
+      description         : abap.char(60);
+}

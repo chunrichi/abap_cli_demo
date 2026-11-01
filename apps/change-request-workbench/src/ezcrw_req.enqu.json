@@ -1,0 +1,9 @@
+{
+  "formatVersion": "1",
+  "header": { "description": "CRW lock object for change request", "originalLanguage": "en" },
+  "primaryTable": { "name": "ZCRW_REQ", "lockMode": "exclusive" },
+  "lockParameters": [
+    { "name": "REQ_ID", "table": "ZCRW_REQ", "field": "REQ_ID" }
+  ],
+  "lockModules": { "allowRfc": false }
+}

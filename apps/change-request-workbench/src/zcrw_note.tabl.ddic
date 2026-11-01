@@ -1,0 +1,15 @@
+@EndUserText.label : 'CRW note'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_note {
+  key client      : abap.clnt not null;
+  key note_id     : abap.char(32) not null;
+      object_type : abap.char(10);
+      object_id   : abap.char(20);
+      author      : abap.char(12);
+      text        : abap.char(255);
+      created_at  : abap.char(14);
+      visibility  : abap.char(10);
+}

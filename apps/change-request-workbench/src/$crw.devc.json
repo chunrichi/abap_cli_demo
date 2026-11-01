@@ -1,0 +1,15 @@
+{
+  "formatVersion": "1",
+  "header": {
+    "description": "Change Request Workbench local package",
+    "originalLanguage": "zh"
+  },
+  "generalInformation": {
+    "type": "development",
+    "superPackage": "$TMP",
+    "softwareComponent": "LOCAL",
+    "supportsRecordChanges": false,
+    "isAddingObjectsNotAllowed": true,
+    "isEncapsulated": false
+  }
+}

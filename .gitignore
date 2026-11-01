@@ -1,4 +1,5 @@
 .abap.json
+.abap-cli/
 .env
 tmp/
 node_modules/

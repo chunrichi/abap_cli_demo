@@ -1,0 +1,15 @@
+@EndUserText.label : 'CRW change cycle'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_cycle {
+  key client      : abap.clnt not null;
+  key cycle_id    : abap.char(16) not null;
+      description : abap.char(60);
+      start_date  : abap.dats;
+      end_date    : abap.dats;
+      freeze_date : abap.dats;
+      status      : abap.char(10);
+      target_sys  : abap.char(10);
+}

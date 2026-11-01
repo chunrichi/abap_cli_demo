@@ -1,0 +1,16 @@
+@EndUserText.label : 'CRW approval matrix'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_appr_cfg {
+  key client        : abap.clnt not null;
+  key profile_id    : abap.char(20) not null;
+  key step_no       : abap.numc(2) not null;
+      approver_role : abap.char(20);
+      approver_user : abap.char(12);
+      object_type   : abap.char(10);
+      req_type      : abap.char(4);
+      priority      : abap.char(2);
+      mandatory     : abap.char(1);
+}

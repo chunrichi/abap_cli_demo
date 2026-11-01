@@ -4,7 +4,7 @@
 > CLI 领域知识不在这里：先读 [`abap-cli` 路由 skill](.agents/skills/abap-cli/SKILL.md)，命中唯一目标后再加载对应领域 skill。
 > 库结构、示例清单、路线图见 [`docs/demo-library-plan.md`](docs/demo-library-plan.md)。
 
-## TL;DR（给 agent 的 8 条）
+## TL;DR（给 agent 的 9 条）
 
 1. 一个 demo = `src/`（ABAP/AFF 代码）+ `README.md`（含原始 Prompt 与运行验证）；前端页面 demo 可加 `screenshots/`，目录里不放其它文件。
 2. 对象名以 `Z` 开头、包含 `DMA`（Demo ABAP），默认 `$TMP` 包。
@@ -14,6 +14,7 @@
 6. 不提交 `.abap.json`、凭证、内网地址、真实业务数据；截图必须脱敏。
 7. Prompt 写在 README 的"原始 Prompt"章节，必须可复制执行；实际执行与 prompt 不一致时先改 README。
 8. 不碰生产、不 `push --all`、不包级批量删除、不 release transport。
+9. 应用型项目在 `apps/`，按 §4A 契约：产品前缀命名（如 `ZCRW_*`），不用 `DMA`/编号；包与写路径限制见 §4A.3。
 
 ## 原则
 
@@ -23,6 +24,8 @@
 ## 1. 项目定位
 
 本仓库是 **prompt-first 的 ABAP demo 示例库**：每个 demo 用 README 中的 prompt 驱动 agent 调用 `abap` CLI，在 SAP 系统里落地 ABAP 对象，并把可运行代码与说明留在同一个目录。
+
+仓库同时容纳**应用型项目**（`apps/`，真实应用，见 §4A）；应用不是 demo，不参与 demo 编号，也不套用 demo 的目录最小化与 `DMA` 命名。
 
 三句话：
 
@@ -46,6 +49,7 @@
 10. **不碰生产**：只连接 dev / sandbox / trial 环境；无法确认环境时先问人。
 11. **禁止批量操作**：不 `push --all` / `check --all`，不按包批量删除，不 release transport。
 12. **不静默偏差**：实际执行与 README 的 prompt 不一致时，回写 README（必要时 `src/`），重新验证。
+13. **应用单元例外**：`apps/` 项目按 §4A 执行；本节规则 2/3/4 中关于 `DMA` 命名、demo 目录最小化、`$TMP` 默认包的条款不适用，但脱敏、不碰生产、禁止批量/release、JSON 契约、写路径顺序仍然适用。
 
 ## 3. 仓库布局
 
@@ -54,13 +58,16 @@ abap_cli_demo/
 ├── AGENTS.md                  # 本文件：仓库合约（手写，权威）
 ├── README.md                  # 库入口 + demo 索引（编号/标题/层级/对象/最近验证）
 ├── docs/
-│   └── demo-library-plan.md   # 库结构、示例清单、路线图
+│   ├── demo-library-plan.md   # demo 线：结构、示例清单、路线图
+│   └── change-request-workbench-plan.md  # 应用线：CRW 规划
 ├── demos/
 │   ├── 01-icf-mime-stats/
 │   │   ├── README.md          # 场景 + 原始 Prompt + 实现说明 + 运行验证（+ 截图）
 │   │   ├── src/               # AFF 代码，扁平布局；MIME 前端资产放 src/mime/
 │   │   └── screenshots/       # 可选：仅前端页面 demo
 │   └── <NN>-<slug>/
+├── apps/
+│   └── change-request-workbench/  # 应用型项目（非 demo）：README + docs + src + src/mime + screenshots
 ├── scripts/
 │   └── check-demos.mjs        # 可选：目录/命名/README 结构校验（M2）
 ├── .agents/
@@ -73,7 +80,7 @@ abap_cli_demo/
 
 - `.agents/skills/` 与 `.agents/agents/` 是 `abap init --agent generic` 的**生成物**：不要手改；升级时用 `abap init --agent generic --force` 重新生成并单独 review 差异。生成物内部的相对链接按上游仓库布局书写，在本库中可能不可解析——以本文件与实际路径为准。
 - `.agents/skills/abap-style/` 来自 [`chunrichi/abap-coding`](https://github.com/chunrichi/abap-coding/tree/main/skills/abap-style)（当前 v1.0.7），**手工同步**，不随 `abap init` 更新；升级时重新拉取并 review。
-- 入库范围：`AGENTS.md`、`README.md`、`docs/`、`demos/`、`scripts/`、`.agents/`（生成物 + 手工同步的 `abap-style`）、`.abapignore`；`.abap.json`、`tmp/`、`.env`、`node_modules/`、日志等按 `.gitignore` 排除。
+- 入库范围：`AGENTS.md`、`README.md`、`docs/`、`demos/`、`apps/`、`scripts/`、`.agents/`（生成物 + 手工同步的 `abap-style`）、`.abapignore`；`.abap.json`、`tmp/`、`.env`、`node_modules/`、日志等按 `.gitignore` 排除。
 
 ## 4. Demo 单元契约
 
@@ -136,6 +143,56 @@ demos/01-icf-mime-stats/
 - 必须脱敏：不出现系统 URL、client、用户名、真实业务数据。
 - README 用相对路径嵌入，例如：`![看板](screenshots/01-icf-mime-stats-dashboard.png)`。
 - 实现变更后重新截图；截图必须与当前 `src/` 行为一致。
+
+## 4A. 应用单元契约（apps/）
+
+> 适用于 `apps/` 下的真实应用（非 demo）。与 §4 的 demo 契约冲突时，以本节为准；§2 的脱敏、不碰生产、禁止批量操作/release、JSON 契约、写路径顺序仍然适用。
+
+### 4A.1 目录
+
+```
+apps/<slug>/
+├── README.md        # 产品说明、状态、安装、验证、截图索引
+├── docs/            # 允许：architecture.md / workflow.md / runbook.md
+├── src/             # AFF 扁平布局（DDIC/CLAS/INTF/HTTP/TRAN/NROB/ENQU/MSAG + testclasses sidecar）
+├── src/mime/        # 前端资产
+└── screenshots/     # 主页面截图（脱敏）
+```
+
+- 应用单元允许 `docs/`；demo 不允许。
+- 所有 `abap create/pull` 在应用目录内执行，拉取文件落到本应用 `src/`，不得污染仓库根目录。
+- 前端零依赖、原生 ES modules；不提交构建产物。
+
+### 4A.2 命名
+
+- 目录：`apps/<kebab-case-slug>/`，无编号、无 demo 字样。
+- 对象：产品前缀（当前 `CRW`）：`ZCRW_*` / `ZCL_CRW_*` / `ZIF_CRW_*` / `ZCX_CRW_*`；全大写、≤30 字符、不含 `DMA`。
+
+### 4A.3 包与写路径
+
+- 包：`$CRW`（本地包；super package `$TMP`，无 transport）。
+- **本地包写路径**：abap-cli 2.0.0 起原生支持 `$` 前缀本地包免 transport（create / push / delete / deploy + ICF 服务端，见规划文档附录 B.3）。升级 CLI 后先 `abap deploy --yes` 并确认 `deploy status` current；ICF 未匹配时 DDIC/ICF 写路径可能失败。
+- 本地包不可跨系统部署；应用 README/runbook 必须写明。
+- 写 SAP 顺序：`check content` / `validate:aff` → `check syntax` → `push` → `inspect --activation` / `run` / `test`；一次只写本应用对象。
+
+### 4A.4 验证与 DoD
+
+- 静态：`abap check content` / `abap validate:aff`。
+- 单元测试：`abap test`。
+- 运行自检：`abap run <SELFCHECK> --json`，输出含固定标记。
+- 数据断言：只读 `abap select`。
+- UI：`screenshots/` 主页面截图，脱敏且与实现一致。
+- 文档：README + `docs/architecture.md` + `docs/workflow.md` + `docs/runbook.md`。
+- 可重跑：数据 reset classrun；连续两次一致。
+
+DoD checklist：
+
+- [ ] 目录符合 §4A.1
+- [ ] 命名符合 §4A.2
+- [ ] 自检/单测/只读断言通过
+- [ ] 截图脱敏
+- [ ] runbook 可安装/升级
+- [ ] 无 URL/凭证/真实业务数据
 
 ## 5. Prompt 规范
 
@@ -224,10 +281,12 @@ Prompt 是 README 的"原始 Prompt"章节中的一段可复制文本（建议�
 | 静态 | `scripts/check-demos.mjs`（可选）+ `abap check content` / `abap validate:aff` | 提交前 / CI | 否 |
 | 运行 | README 的"运行与验证"命令（只读） | 合并前 / 变更后 | 否 |
 | 视觉 | `screenshots/`（仅前端页面 demo） | 页面变更后 | 否 |
+| 应用 | `abap test` + 自检 classrun + 只读 `select` + `screenshots/` | 里程碑 / 发布前 | 否 |
 
 - 本仓库**不保存证据文件**：验证结果体现在 README 的"运行与验证"章节，并在根 README 索引记录"最近验证"日期（可选）。
 - 合并前必须实际跑通一次；没有跑通不得写"已验证"。
 - 可重跑 demo 连续两次（含复位）结果一致。
+- 应用项目按 §4A.4 验证；HTTP URL 不写入仓库。
 
 ### 7.2 只读命令白名单
 
@@ -290,6 +349,8 @@ DoD checklist：
 - [ ] 根 README 索引已更新
 - [ ] 无 `.abap.json` / 凭证 / URL / 真实业务数据
 
+应用单元不适用本节的 demo 编号与 `$TMP` live 实跑要求，DoD 见 §4A.4。
+
 ## 11. Git 与提交
 
 仓库初始化后，`.gitignore` 至少包含：
@@ -303,7 +364,7 @@ node_modules/
 .DS_Store
 ```
 
-- 提交信息：`demo(<NN>-<slug>): <做了什么>`、`docs: ...`、`chore: ...`；一个 demo 一个 commit。
+- 提交信息：`demo(<NN>-<slug>): <做了什么>`、`app(crw): <做了什么>`、`docs: ...`、`chore: ...`；一个 demo/应用里程碑一个 commit。
 - `README.md`、`src/`、`screenshots/`、根索引变更必须同一 commit，保证 demo 可独立回滚。
 - 不提交构建产物与临时文件；不 force push 主分支。
 
@@ -323,10 +384,12 @@ node_modules/
 - 预检：`abap doctor --json`、`abap init --show-config --json`、`abap profile test`（详见 `abap-cli-setup`）。
 - ICF 依赖：DDIC / `select` / `fields` / `run-report` 依赖内置 ICF 服务；`abap deploy status --json` 过期时执行 `abap deploy --yes --json`。
 - 环境差异（ECC / S/4、release）写进 demo README 的前置条件，demo 不写死系统信息。
+- 当前工作区（2026-11-01）：active profile `test`（systemVersion 789）、abap-cli 2.0.0（Node 24 LTS）、ICF 2.0.0 current；本地包 `$CRW` 已创建，`$` 本地包写路径可用（§4A.3 / 规划文档 B.3）；M0 已知限制：NROB 要求非空 subType、MSAG 通道探测选 ADT（规划文档 B.4）。
 
 ## 14. 参考
 
 - 库结构、示例清单、路线图：[`docs/demo-library-plan.md`](docs/demo-library-plan.md)
+- 应用线规划：[`docs/change-request-workbench-plan.md`](docs/change-request-workbench-plan.md)
 - 路由层：[`.agents/skills/abap-cli/SKILL.md`](.agents/skills/abap-cli/SKILL.md)
 - 端到端代理：[`.agents/agents/abap-developer.agent.md`](.agents/agents/abap-developer.agent.md)
 - ABAP 编码风格：[`.agents/skills/abap-style/SKILL.md`](.agents/skills/abap-style/SKILL.md)（来自 `chunrichi/abap-coding`，v1.0.7）

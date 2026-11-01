@@ -1,0 +1,29 @@
+@EndUserText.label : 'CRW change request header'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_req {
+  key client         : abap.clnt not null;
+  key req_id         : abap.char(10) not null;
+      req_type       : abap.char(4);
+      title          : abap.char(80);
+      description    : abap.char(255);
+      status         : abap.char(20);
+      priority       : abap.char(2);
+      component      : abap.char(20);
+      cycle_id       : abap.char(16);
+      requester      : abap.char(12);
+      owner          : abap.char(12);
+      approval_state : abap.char(10);
+      planned_start  : abap.dats;
+      planned_end    : abap.dats;
+      due_date       : abap.dats;
+      version        : abap.numc(6);
+      created_at     : abap.char(14);
+      created_by     : abap.char(12);
+      changed_at     : abap.char(14);
+      changed_by     : abap.char(12);
+      closed_at      : abap.char(14);
+      cancel_reason  : abap.char(80);
+}

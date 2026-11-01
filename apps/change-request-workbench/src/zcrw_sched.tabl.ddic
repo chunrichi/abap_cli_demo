@@ -1,0 +1,19 @@
+@EndUserText.label : 'CRW import schedule'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_sched {
+  key client       : abap.clnt not null;
+  key sched_id     : abap.char(32) not null;
+      object_type  : abap.char(10);
+      object_id    : abap.char(20);
+      target_sys   : abap.char(10);
+      scheduled_at : abap.char(14);
+      status       : abap.char(10);
+      note         : abap.char(255);
+      created_at   : abap.char(14);
+      created_by   : abap.char(12);
+      changed_at   : abap.char(14);
+      changed_by   : abap.char(12);
+}

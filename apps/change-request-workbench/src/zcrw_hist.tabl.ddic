@@ -1,0 +1,19 @@
+@EndUserText.label : 'CRW audit history'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_hist {
+  key client      : abap.clnt not null;
+  key hist_id     : abap.char(32) not null;
+      object_type : abap.char(10);
+      object_id   : abap.char(20);
+      action      : abap.char(30);
+      field       : abap.char(30);
+      old_value   : abap.char(255);
+      new_value   : abap.char(255);
+      comment_txt  : abap.char(255);
+      changed_by  : abap.char(12);
+      changed_at  : abap.char(14);
+      source      : abap.char(10);
+}

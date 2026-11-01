@@ -1,0 +1,16 @@
+@EndUserText.label : 'CRW application log'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_log {
+  key client         : abap.clnt not null;
+  key log_id         : abap.char(32) not null;
+      timestamp      : abap.char(14);
+      user_id        : abap.char(12);
+      area           : abap.char(20);
+      severity       : abap.char(10);
+      message        : abap.char(255);
+      context        : abap.char(255);
+      correlation_id : abap.char(32);
+}

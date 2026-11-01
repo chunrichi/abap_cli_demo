@@ -1,0 +1,24 @@
+@EndUserText.label : 'CRW task and subtask'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_task {
+  key client         : abap.clnt not null;
+  key task_id        : abap.char(10) not null;
+      req_id         : abap.char(10);
+      cd_id          : abap.char(10);
+      parent_task_id : abap.char(10);
+      task_level     : abap.char(1);
+      task_type      : abap.char(10);
+      title          : abap.char(80);
+      assignee       : abap.char(12);
+      status         : abap.char(20);
+      due_date       : abap.dats;
+      est_hours      : abap.numc(5);
+      version        : abap.numc(6);
+      created_at     : abap.char(14);
+      created_by     : abap.char(12);
+      changed_at     : abap.char(14);
+      changed_by     : abap.char(12);
+}

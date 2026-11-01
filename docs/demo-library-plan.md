@@ -12,6 +12,7 @@
 - **不做证据体系**：不保存 `evidence/`、`meta.json`、`prompt.md`、`verify.sh`；验证结果写进 README，索引记录"最近验证"日期。
 - **本期交付**：仓库合约 `AGENTS.md` + 本规划。目录骨架与 demo 实现按第 9 节路线图分期落地。
 - **首个 demo**：01 icf-mime-stats（ICF + MIME 统计看板）于 2026-10-31 落地、2026-11-01 live 验证（见 `demos/01-icf-mime-stats/`）。
+- **应用线（独立于 demo 编号）**：第二个旗舰项目是真实应用「变更请求工作台（CRW）」，位于 `apps/change-request-workbench/`，按 `AGENTS.md` §4A 管理；规划见 [`docs/change-request-workbench-plan.md`](change-request-workbench-plan.md)。demo 02–12 路线图保留，不受影响（D7）。
 - **已完成的验证**：D02 的命令协议已于 2026-10-31 在 dev 环境 `$TMP` 实跑通过并清理（见第 11 节）。
 
 ## 2. 目标与非目标

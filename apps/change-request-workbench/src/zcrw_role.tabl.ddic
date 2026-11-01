@@ -1,0 +1,14 @@
+@EndUserText.label : 'CRW role assignment'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zcrw_role {
+  key client     : abap.clnt not null;
+  key user_id    : abap.char(12) not null;
+  key role       : abap.char(20) not null;
+  key scope_type : abap.char(10) not null;
+  key scope_id   : abap.char(20) not null;
+      valid_from : abap.dats;
+      valid_to   : abap.dats;
+}
