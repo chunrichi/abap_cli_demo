@@ -57,9 +57,16 @@
 abap_cli_demo/
 ├── AGENTS.md                  # 本文件：仓库合约（手写，权威）
 ├── README.md                  # 库入口 + demo 索引（编号/标题/层级/对象/最近验证）
+├── CONTRIBUTING.md            # 协作规则：提交/分支/PR/tag/敏感扫描
+├── LICENSE                    # MIT
+├── NOTICE                     # 第三方内容与生成物署名
+├── .gitattributes             # 换行与 linguist 规则
+├── .github/                   # PR / issue 模板
 ├── docs/
 │   ├── demo-library-plan.md   # demo 线：结构、示例清单、路线图
-│   └── change-request-workbench-plan.md  # 应用线：CRW 规划
+│   ├── change-request-workbench-plan.md  # 应用线：CRW 规划
+│   ├── github-workflow.md     # GitHub 决策记录（D1–D13）与发布流程
+│   └── handoff-next-session.md  # 会话交接
 ├── demos/
 │   ├── 01-icf-mime-stats/
 │   │   ├── README.md          # 场景 + 原始 Prompt + 实现说明 + 运行验证（+ 截图）
@@ -69,18 +76,20 @@ abap_cli_demo/
 ├── apps/
 │   └── change-request-workbench/  # 应用型项目（非 demo）：README + docs + src + src/mime + screenshots
 ├── scripts/
-│   └── check-demos.mjs        # 可选：目录/命名/README 结构校验（M2）
+│   ├── check-demos.mjs        # 可选：目录/命名/README 结构校验（M2）
+│   └── check-secrets.sh       # push/PR 前本地敏感扫描
 ├── .agents/
 │   ├── skills/                # abap-cli 生成物 + 手工同步的 abap-style（DSH 项目级技能根）
 │   └── agents/abap-developer.agent.md
 ├── .abap.json                 # 本地连接绑定（gitignored，不入库）
 ├── .abapignore                # push 扫描忽略规则（入库）
+├── .gitignore                 # 本地文件排除（入库）
 └── tmp/                       # 临时物（gitignored）
 ```
 
 - `.agents/skills/` 与 `.agents/agents/` 是 `abap init --agent generic` 的**生成物**：不要手改；升级时用 `abap init --agent generic --force` 重新生成并单独 review 差异。生成物内部的相对链接按上游仓库布局书写，在本库中可能不可解析——以本文件与实际路径为准。
 - `.agents/skills/abap-style/` 来自 [`chunrichi/abap-coding`](https://github.com/chunrichi/abap-coding/tree/main/skills/abap-style)（当前 v1.0.7），**手工同步**，不随 `abap init` 更新；升级时重新拉取并 review。
-- 入库范围：`AGENTS.md`、`README.md`、`docs/`、`demos/`、`apps/`、`scripts/`、`.agents/`（生成物 + 手工同步的 `abap-style`）、`.abapignore`；`.abap.json`、`tmp/`、`.env`、`node_modules/`、日志等按 `.gitignore` 排除。
+- 入库范围：`AGENTS.md`、`README.md`、`CONTRIBUTING.md`、`LICENSE`、`NOTICE`、`docs/`、`demos/`、`apps/`、`scripts/`、`.github/`、`.agents/`（生成物 + 手工同步的 `abap-style`）、`.abapignore`、`.gitattributes`、`.gitignore`；`.abap.json`、`tmp/`、`.env`、`node_modules/`、日志等按 `.gitignore` 排除。
 
 ## 4. Demo 单元契约
 
@@ -367,6 +376,10 @@ node_modules/
 - 提交信息：`demo(<NN>-<slug>): <做了什么>`、`app(crw): <做了什么>`、`docs: ...`、`chore: ...`；一个 demo/应用里程碑一个 commit。
 - `README.md`、`src/`、`screenshots/`、根索引变更必须同一 commit，保证 demo 可独立回滚。
 - 不提交构建产物与临时文件；不 force push 主分支。
+- **远端与协作（2026-11 起）**：`origin` = <https://github.com/chunrichi/abap_cli_demo>（public），默认分支 `main`；提交/分支/PR/tag 细则见 [`CONTRIBUTING.md`](CONTRIBUTING.md)，决策记录（D1–D13）见 [`docs/github-workflow.md`](docs/github-workflow.md)。
+- `main` 受保护：只能经 PR 合入，禁止 force push、禁止删除分支（管理员同样受限）；日常改动走 `feat/`/`fix/`/`docs/`/`chore/` 短分支，合并后删分支。
+- push/PR 前必须完成 §7.1 只读验证并运行 `bash scripts/check-secrets.sh`；任一扫描命中先停止并问人。
+- tag/release 采用 `v0.x.y` 语义化版本，规则见 CONTRIBUTING.md。
 
 ## 12. Agent 上下文与技能路由
 
@@ -390,6 +403,9 @@ node_modules/
 
 - 库结构、示例清单、路线图：[`docs/demo-library-plan.md`](docs/demo-library-plan.md)
 - 应用线规划：[`docs/change-request-workbench-plan.md`](docs/change-request-workbench-plan.md)
+- 协作规则（提交/分支/PR/tag/敏感扫描）：[`CONTRIBUTING.md`](CONTRIBUTING.md)
+- GitHub 决策记录与发布流程：[`docs/github-workflow.md`](docs/github-workflow.md)
+- 第三方内容署名：[`NOTICE`](NOTICE)
 - 路由层：[`.agents/skills/abap-cli/SKILL.md`](.agents/skills/abap-cli/SKILL.md)
 - 端到端代理：[`.agents/agents/abap-developer.agent.md`](.agents/agents/abap-developer.agent.md)
 - ABAP 编码风格：[`.agents/skills/abap-style/SKILL.md`](.agents/skills/abap-style/SKILL.md)（来自 `chunrichi/abap-coding`，v1.0.7）
