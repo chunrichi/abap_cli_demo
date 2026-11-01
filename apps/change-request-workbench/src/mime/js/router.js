@@ -13,6 +13,7 @@ import * as ui from './ui.js';
 const ROUTES = [
   { name: 'dashboard', segs: ['dashboard'], title: '工作台首页', load: () => import('./pages/dashboard.js') },
   { name: 'my-work', segs: ['my-work'], title: '我的工作', load: () => import('./pages/my-work.js') },
+  { name: 'notifications', segs: ['notifications'], title: '通知中心', load: () => import('./pages/notifications.js') },
   { name: 'request-new', segs: ['requests', 'new'], title: '新建请求', load: () => import('./pages/request-new.js') },
   { name: 'requests', segs: ['requests'], title: '请求 CR', load: () => import('./pages/requests.js') },
   { name: 'request-detail', segs: ['requests', ':id'], title: '请求详情', load: () => import('./pages/request-detail.js') },

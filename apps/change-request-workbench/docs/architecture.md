@@ -6,6 +6,7 @@
 > 文档约定：状态码、动作码、错误码、字段名均为 ASCII 大写；字段名与 DDIC 一致；标注 **待定** 的条目表示规划未定义、需在对应里程碑前决策，不在实现中自行发明。
 >
 > **v1 冻结（2026-11-01，Phase 1）**：§10 的 A1–A22 已全部裁决（见“v1 决议”列）；正文中残留的“待定 / Axx”表述一律以 §10 决议为准；DTO、参数与排序白名单见 §6.7。
+> **v1.2.0 增补（2026-11-02，M5）**：新增站内通知中心（`ZCRW_NOTIFY` + `ZCL_CRW_NOTIFY` / `ZCL_CRW_API_NOTIFY` + 报表 `ZCRW_REMIND_JOB`），数据模型 14 张表、版本 1.2.0；对象与触发点见 §4.2.2 / §5.8，API 见 §6.2 / §6.7，决议见 §10.1。P2 basis 类项（包迁移 / 索引 / 归档 / 权限 / Fiori）只出设计，见 [p2-basis.md](p2-basis.md)。
 
 ---
 
@@ -48,7 +49,7 @@ CRW 是 SAP 系统内的变更请求工作台：把「Change Request → Change 
 | 对象包 | `$CRW` | 本地包，super package `$TMP`，DLVUNIT LOCAL，无 transport |
 | 开发工具 | abap-cli 2.0.0 | `$` 前缀本地包免 transport；内置 ICF 服务 2.0.0 |
 | 当前环境 | profile `test`，systemVersion 789 | 环境差异写入 runbook 前置条件，不写死在代码里 |
-| 数据模型 | 13 张透明表，char-only 字段 | 见 §5 |
+| 数据模型 | 14 张透明表，char-only 字段 | 见 §5（M5 新增 `ZCRW_NOTIFY`） |
 | 前端 | 原生 ES modules，hash 路由 | 无构建产物、无第三方库 |
 | 语言 | 中文 UI，代码与标识符英文 | ABAP 注释英文 |
 
@@ -86,7 +87,7 @@ CRW 是 SAP 系统内的变更请求工作台：把「Change Request → Change 
 | B1 | 浏览器 ↔ ICF | 身份 = SAP 登录会话（SSO / 表单 / Basic，按客户环境）；应用不保存密码；会话超时由 SAP 控制 |
 | B2 | 应用 ↔ CTS | 严格只读；读取失败降级，不写任何 CTS 表，不调用 TMS 导入 API |
 | B3 | 浏览器 ↔ 写接口 | 同源 + 自定义请求头 `X-CRW-Request: 1`；前端隐藏按钮只是体验，不是安全边界 |
-| B4 | 应用 ↔ 审计 | 历史表只追加；应用级审计不等于合规级不可篡改（见 §8.6） |
+| B4 | 应用 ↔ 审计 | 历史表只追加；应用级审计不等于合规级不可篡改（见 §8.5） |
 
 写请求的数据流：`HTTP 请求 → 会话用户 → API context（用户 / 角色 / correlationId）→ controller 参数校验 → service 业务规则与守卫 → repository 写表 + 写历史 → COMMIT → DTO → JSON 响应`。
 
@@ -101,14 +102,16 @@ CRW 是 SAP 系统内的变更请求工作台：把「Change Request → Change 
 | Service 层 | ABAP | 业务规则、事务边界、编排、历史写入 |
 | Repository 层 | ABAP | 唯一 Open SQL 出口；分页、乐观锁 |
 | CTS Adapter | ABAP | 只读 `E070` / `E071` / `E07T` / TMS 队列 |
+| 通知服务 | ABAP | `ZCL_CRW_NOTIFY`：站内通知生成 / 去重 / 已读；预留邮件通道（不发信） |
+| 提醒报表 | ABAP 报表 + `SM36` 作业 | `ZCRW_REMIND_JOB`：扫描待审批 / 逾期任务 / 逾期计划并生成通知；作业定义由 basis 配置（本轮不建） |
 | Bootstrap / Migration / Selfcheck | ABAP classrun | 初始化、版本迁移、只读自检 |
 
 ### 2.4 外部依赖
 
-- 无外部服务、无 CDN、无邮件通知（邮件 P2，需 basis 配 SMTP）。
-- 无后台作业（abap-cli 不支持 SM36；计划导入用「记录 + 到点计算 + 提醒」，见 [workflow.md](workflow.md) §8）。
+- 无外部服务、无 CDN。站内通知不依赖外部系统；邮件通道 `ZCL_CRW_NOTIFY=>deliver_email` 已预留，SMTP 未配置前不发信（P2，需 basis 配 SCOT，见 [workflow.md](workflow.md) §9.6）。
+- 后台作业：应用不创建 `SM36` 作业；`ZCRW_REMIND_JOB` 由 basis 按 [runbook.md](runbook.md) §2.13 配置为每日作业（本轮不建），逾期计算仍以读取时计算为准（[workflow.md](workflow.md) §8）。
 - CTS 为唯一外部数据源，只读（D4 / D8）。
-- 无自定义 AUTH 对象（P0/P1）；生产级权限走人工配置。
+- 无自定义 AUTH 对象（P0/P1）；P2 权限对象只出设计，见 [p2-basis.md](p2-basis.md) §5。
 
 ---
 
@@ -130,7 +133,7 @@ CRW 是 SAP 系统内的变更请求工作台：把「Change Request → Change 
 - 页面为 hash 路由（`#/dashboard`、`#/requests/{id}` 等），刷新与分享保持页面，浏览器前进 / 后退可用。
 - 列表服务端分页（默认 50）；筛选条件写入 URL；动作条按「当前状态 + 角色」展示，禁用项给原因。
 - 渲染文本全部转义（XSS）；导出文件名过滤用户输入；不在 URL 放敏感数据。
-- 页面清单（15 页）与布局见规划 §6.1 / §6.2，本文不重复。
+- 页面清单（16 页，M5 新增 `#/notifications`）与布局见规划 §6.1 / §6.2，本文不重复。
 
 ### 3.3 abap-cli 能力边界对本架构的影响
 
@@ -141,11 +144,11 @@ CRW 是 SAP 系统内的变更请求工作台：把「Change Request → Change 
 | HTTP（ICF）/ TRAN（事务码）/ MIME | 支持 | `create --file`；MIME 用 `mime create` + `mime push` |
 | AUTH 权限对象 | 不支持 | 应用角色表 `ZCRW_ROLE` + 标准权限检查；自定义 AUTH 人工创建（P2） |
 | SM30 表维护生成器 | 不支持 | 配置用 bootstrap + 应用内配置界面（P1/P2） |
-| 后台作业（SM36） | 不支持 | 计划导入只做记录 / 计算 / 提醒 |
+| 后台作业（SM36） | 不支持 | 应用提供可调度报表 `ZCRW_REMIND_JOB`；作业定义由 basis 在 SM36 创建（runbook §2.13），本轮不建 |
 | 表数据 INSERT / UPDATE | 无 CLI 命令 | 初始化与冒烟数据由 classrun 写入 |
 | Transport release / import | CLI 不执行 | 人工在 SE01 / STMS 操作，应用只读状态 |
 | 建表 enhancement category | ICF handler 固定 char 类型 | 全部字段 char-only（见 §5.2） |
-| 二级索引 | 无 CLI 入口 | M1 仅主键查询；P1 通过 GUI 或后续 CLI 支持补索引 |
+| 二级索引 | 无 CLI 入口 | 主键查询；P2 通过 GUI / DB02 补索引（A20 / D20，设计见 p2-basis §3） |
 
 ---
 
@@ -161,12 +164,13 @@ ZCL_CRW_HTTP_HANDLER ── MIME 静态资源（/zcrw）+ SPA fallback
    ▼
 ZCL_CRW_API_ROUTER ── 鉴权 / 上下文 / 错误信封
    ▼
-Controllers（request / cd / task / approval / transport / schedule / dashboard / report / config / me）
+Controllers（request / cd / task / approval / transport / schedule / dashboard / report / config / me / notify）
    ▼
-Services（request / cd / task / workflow / approval / transport / schedule / report / auth / config）
+Services（request / cd / task / workflow / approval / transport / schedule / report / auth / config / notify）
    ▼
 Repositories（Open SQL）── ZCRW_* 表
 CTS Adapter（只读）── E070 / E071 / E07T / TMS 队列
+通知服务（ZCL_CRW_NOTIFY）── ZCRW_NOTIFY；提醒报表 ZCRW_REMIND_JOB（SM36 可调度）
 支撑：Number / History / Log / JSON / MIME / Bootstrap / Migration / Selfcheck
 ```
 
@@ -178,13 +182,13 @@ CTS Adapter（只读）── E070 / E071 / E07T / TMS 队列
 | `ZCL_CRW_NUMBER` | CLAS | 号段区间与取号 | `ensure_intervals( )` 幂等建 3 个区间；`next( object ) → INRI-NR`（`NUMBER_GET_NEXT`，区间 `01`）；异常 `ZCX_CRW_ERROR` | 已实现 |
 | `ZCL_CRW_AUDIT` | CLAS | 审计写入 | `log( object_type, object_id, action, field, old_value, new_value, comment, source = API )` 写一条 `ZCRW_HIST`；规划中名为 `ZCL_CRW_HISTORY`（A22） | 已实现 |
 | `ZCL_CRW_REQUEST_SVC` / `ZCL_CRW_CD_SVC` / `ZCL_CRW_TASK_SVC` | CLAS | CR / CD / Task 服务骨架 | `create` / `get` / `list` / `update` / `change_status` / `display_id`；私有 `next_id`（号段取号）/ `validate_transition`（状态迁移校验）/ `bump_version`（乐观锁）；写审计 | 已实现（M1 骨架；守卫细化与仓储分层待收敛，见 A22） |
-| `ZCL_CRW_BOOTSTRAP` | CLAS + classrun | 幂等初始化 | 建号段区间；种 `ZCRW_VERSION`（CRW 1.0.0）、`ZCRW_APPR_CFG`（`STD_DEFAULT` / step `01`）、`ZCRW_ROLE`（当前用户 ADMIN）；输出 `CRW_BOOTSTRAP_OK intervals=… config=…` | 已实现 |
-| `ZCL_CRW_SELFCHECK` | CLAS + classrun | 只读自检 | 读 13 张表 + `NRIV`（3 区间）+ 版本行 + `T100`（`ZCRW_MSG`）+ ADMIN 角色 + 审批矩阵；输出 `CRW_SELFCHECK_OK tables=13 rows=… intervals=… version=… messages=…`，失败输出 `CRW_SELFCHECK_FAIL …` | 已实现 |
-| `ZCX_CRW_ERROR` | CX | 业务异常 | 继承 `CX_STATIC_CHECK`；`MV_CODE` / `MV_TEXT`；号段异常码 `NR_INIT` / `NR_UPDATE` / `NR_CLOSE` / `NR_GET` | 已实现 |
+| `ZCL_CRW_BOOTSTRAP` | CLAS + classrun | 幂等初始化 | 建号段区间；种 `ZCRW_VERSION`（CRW 1.2.0）、`ZCRW_APPR_CFG`（`STD_DEFAULT` / step `01`）、`ZCRW_ROLE`（当前用户 ADMIN）；输出 `CRW_BOOTSTRAP_OK intervals=… config=…` | 已实现 |
+| `ZCL_CRW_SELFCHECK` | CLAS + classrun | 只读自检 | 读 14 张表 + `NRIV`（3 区间）+ 版本行 + `T100`（`ZCRW_MSG`）+ ADMIN 角色 + 审批矩阵 + 通知数；输出 `CRW_SELFCHECK_OK tables=14 rows=… intervals=… version=… messages=… notifications=… icf=… cts=…`，失败输出 `CRW_SELFCHECK_FAIL …` | 已实现 |
+| `ZCX_CRW_ERROR` | CX | 业务异常 | 继承 `CX_STATIC_CHECK`；`MV_CODE` / `MV_TEXT`；号段异常码 `NR_INIT` / `NR_UPDATE` / `NR_CLOSE` / `NR_GET`；通知异常码 `NOTIFY_*`（如 `NOTIFY_UUID` / `NOTIFY_INSERT` / `NOTIFY_NOT_FOUND`） | 已实现 |
 | `ZCRW_MSG` | MSAG | 消息类 | 8 条：001 CR 不存在、002 非法迁移、003 需要审批、004 transport 不存在、005 无权限、006 CD 不存在、007 任务不存在、008 计划不存在 | 已实现 |
 | `EZCRW_REQ` / `EZCRW_CD` | ENQU | 专用锁对象 | 主表分别为 `ZCRW_REQ` / `ZCRW_CD`，锁参数为主键 `REQ_ID` / `CD_ID`，排他锁 | 已建，调用留 M1 |
 | `ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK` | NROB | 号段对象 | CHAR10、无子对象、区间 `01`；区间由 bootstrap 维护 | 已建 |
-| 13 张 `ZCRW_*` 表 | TABL | 数据模型 | 见 §5.3；均 0 行业务数据 | 已建 |
+| 14 张 `ZCRW_*` 表 | TABL | 数据模型 | 见 §5.3；M5 新增 `ZCRW_NOTIFY` | 已建 |
 | `ZCL_CRW_M1_SMOKE` | CLAS + classrun | M1 端到端冒烟（验收用，非产品对象） | 建 CR → CD → Task / SubTask、走状态迁移并自动清理；输出 `CRW_M1_SMOKE_OK req=… cd=… task=… sub=…` | 已实现 |
 
 ### 4.2.1 M1 API / 审批 / 计划层（2026-11-01 已实现）
@@ -224,15 +228,32 @@ CTS Adapter（只读）── E070 / E071 / E07T / TMS 队列
 
 **实测口径（2026-11-01）**：health/me/list/create/detail/action 经真实 ICF HTTP 走通；错误映射实测 400/403/404/409；未登录由 ICF 标准登录过程返回 401（响应体为登录页，A1/D21 实测结论）；ICF 节点创建后需再 `abap activate ZCL_CRW_HTTP_HANDLER` 一次以刷新类运行时缓存。
 
-### 4.3 规划对象（M1–M4）
+### 4.2.2 M5 通知中心（v1.2.0，2026-11-02 已实现）
+
+| 对象 | 类型 | 职责 | 关键实现 / 输出 | 状态 |
+|---|---|---|---|---|
+| `ZCRW_NOTIFY` | TABL | 站内通知（个人） | 字段与去重见 §5.3 / §5.8；`NOTIFY_ID` CHAR32 主键 | 已建 |
+| `ZCL_CRW_NOTIFY` | CLAS + classrun | 通知服务 | `emit`（发布通知，dedup）/ `refresh_for_user` / `run_scan` / `list_for_user` / `unread_count` / `mark_read` / `mark_all_read`；事件钩子 `notify_approval_pending` / `notify_approval_rejected`；邮件预留 `deliver_email`；只读探测输出 `CRW_NOTIFY_OK rows=… unread=…` | 已实现（单测 5 例） |
+| `ZCL_CRW_API_NOTIFY` | CLAS | 通知控制器 | `/notifications`、`/notifications/unread-count`、`/notifications/refresh`、`/notifications/{id}/read`、`/notifications/read-all` | 已实现 |
+| `ZCL_CRW_API_MAP` | CLAS | DTO 映射 | 新增 `notification( )`（DDIC → §6.7 通知 DTO） | 已实现 |
+| `ZCL_CRW_API_TYPES` | CLAS | DTO 类型 | 新增 `ty_notification` / `tt_notifications` | 已实现 |
+| `ZCRW_REMIND_JOB` | PROG | 提醒报表（SM36 可调度） | 调用 `run_scan`；成功输出 `ZCRW_REMIND_JOB_OK approvals=… tasks=… schedules=… total=…`，失败输出 `ZCRW_REMIND_JOB_FAIL …` | 已实现（作业定义由 basis 在 SM36 建，本轮不建） |
+| SPA（`src/mime/`） | MIME | 顶栏铃铛 + `#/notifications` 页面 | 未读徽标 60s 轮询、启动刷新、下拉最近 5 条未读、刷新 / 全部已读 / 标记已读 | 已实现（截图待人工重拍） |
+
+- **事件钩子**：`ZCL_CRW_APPR_SVC` 在审批步骤生成后调用 `notify_approval_pending`、驳回后调用 `notify_approval_rejected`；通知异常被吞掉，**不阻塞审批主流程**。
+- **初始化 / 演示 / 复位**：`ZCL_CRW_BOOTSTRAP` 版本号升到 1.2.0；`ZCL_CRW_DEMO_DATA` 种子含通知（输出增加 `notifications=…`）；`ZCL_CRW_TEST_DATA` 复位清 `ZCRW_NOTIFY`。
+- **自检**：`ZCL_CRW_SELFCHECK` 覆盖 14 表并在输出中增加 `notifications=…`（只读）。
+- **前端导航**：侧栏「变更流程」组新增「通知」入口，顶栏铃铛与通知中心同源；路由 `#/notifications`，页面标题「通知中心」。
+
+### 4.3 规划对象（M1–M4，含 M5 增补）
 
 | 层 | 对象 | 职责 |
 |---|---|---|
 | 入口 | `ZCL_CRW_HTTP_HANDLER` | 实现 `IF_HTTP_EXTENSION`；路由 MIME / API；CSP / 缓存头 |
 | 路由 | `ZCL_CRW_API_ROUTER` | 解析路径 / 方法 / 参数；异常转错误信封 |
 | 上下文 | `ZCL_CRW_API_CONTEXT` | 当前用户、角色、请求体、correlation id |
-| 控制器 | `ZCL_CRW_API_REQUEST` / `_CD` / `_TASK` / `_APPROVAL` / `_TRANSPORT` / `_SCHEDULE` / `_DASHBOARD` / `_REPORT` / `_CONFIG` / `_ME` | 参数校验 + DTO 转换，不含业务规则 |
-| 服务 | `ZCL_CRW_WORKFLOW_SVC` / `_APPROVAL_SVC` / `_TRANSPORT_SVC` / `_SCHEDULE_SVC` / `_REPORT_SVC` | 业务规则、事务、编排（`_REQUEST_SVC` / `_CD_SVC` / `_TASK_SVC` 已在 M1 落地，见 §4.2） |
+| 控制器 | `ZCL_CRW_API_REQUEST` / `_CD` / `_TASK` / `_APPROVAL` / `_TRANSPORT` / `_SCHEDULE` / `_DASHBOARD` / `_REPORT` / `_CONFIG` / `_ME` / `_NOTIFY` | 参数校验 + DTO 转换，不含业务规则 |
+| 服务 | `ZCL_CRW_WORKFLOW_SVC` / `_APPROVAL_SVC` / `_TRANSPORT_SVC` / `_SCHEDULE_SVC` / `_REPORT_SVC` / `_NOTIFY` | 业务规则、事务、编排（`_REQUEST_SVC` / `_CD_SVC` / `_TASK_SVC` 已在 M1 落地，见 §4.2） |
 | 领域 | `ZCL_CRW_WORKFLOW`（状态机与守卫）、`ZCL_CRW_AUTH`（角色判定）、`ZCL_CRW_CONFIG` | 纯逻辑，可被 ABAP Unit 直接覆盖 |
 | 数据 | `ZCL_CRW_REQUEST_REPO` / `_CD_REPO` / `_TASK_REPO` / `_TR_REPO` / `_SCHED_REPO` / `_APPR_REPO` / `_HIST_REPO` / `_NOTE_REPO` / `_ROLE_REPO` / `_LOG_REPO` | Open SQL、分页、乐观锁 |
 | 集成 | `ZIF_CRW_CTS_READER` + `ZCL_CRW_CTS_ADAPTER` | 只读 `E070` / `E071` / `E07T` / TMS；可 mock 做单测 |
@@ -260,7 +281,8 @@ CTS Adapter（只读）── E070 / E071 / E07T / TMS 队列
 | `ZCL_CRW_LOG` | 技术日志 | API 错误、CTS 失败、迁移、权限拒绝；带 `CORRELATION_ID` |
 | `ZCL_CRW_JSON` | 序列化 | `/ui2/cl_json`，camelCase DTO；中文与嵌套已验证 |
 | `ZCL_CRW_MIME` | 静态资源 | 按 MIME 路径读 `/zcrw` 下资产；未命中回退 `index.html` |
-| `ZCX_CRW_ERROR` | 异常 | `MV_CODE` 为内部异常码，router 映射为对外 API 错误码（如 `NR_*` → `NUMBER_RANGE_ERROR`） |
+| `ZCL_CRW_NOTIFY` | 站内通知 | 仅在 `emit` 成功落库后调用邮件预留；去重与状态语义见 §5.8 |
+| `ZCX_CRW_ERROR` | 异常 | `MV_CODE` 为内部异常码，router 映射为对外 API 错误码（如 `NR_*` → `NUMBER_RANGE_ERROR`、`*NOT_FOUND*` → `NOT_FOUND`） |
 
 ---
 
@@ -275,13 +297,14 @@ Cycle ──< Change Request ──< Change Document ──< Task ──< SubTas
                                     └──< ImportSchedule（计划导入时间 / 窗口）
 Change Request / Change Document ──< Approval
 Change Request / Change Document / Task ──< History / Note
+User ──< Notification（站内通知，接收人 = USER_ID）
 User ──< RoleAssignment（全局 / 组件 / 周期）
 配置：RequestType / ApprovalMatrix / Cycle
 ```
 
 ### 5.2 char-only DDIC 约束
 
-**原因**：abap-cli 2.0.0 建表 ICF handler 的 enhancement category 固定为 `Can Be Enhanced (Char. Type)`，deep 类型与数值类型会报 enhancement category 错误（规划附录 B.4-3）。因此 13 张表全部只使用 `CHAR` / `NUMC` / `DATS` / `TIMS`；不使用 `DEC` / `INT` 等数值类型，不使用 `DATS` / `TIMS` 以外的时间类型，不使用 `RAW16` / `XSTRING`。
+**原因**：abap-cli 2.0.0 建表 ICF handler 的 enhancement category 固定为 `Can Be Enhanced (Char. Type)`，deep 类型与数值类型会报 enhancement category 错误（规划附录 B.4-3）。因此 14 张表全部只使用 `CHAR` / `NUMC` / `DATS` / `TIMS`；不使用 `DEC` / `INT` 等数值类型，不使用 `DATS` / `TIMS` 以外的时间类型，不使用 `RAW16` / `XSTRING`。
 
 | 语义 | 类型 / 长度 | 编码 | 生成 / 转换 | 示例 |
 |---|---|---|---|---|
@@ -301,9 +324,9 @@ User ──< RoleAssignment（全局 / 组件 / 周期）
 - 数值聚合（报表工时、时长）需在 ABAP 侧 `CAST` / 转换后计算；不允许对 `CHAR` 列直接做数值运算。
 - 字段长度上限 `CHAR255`：审批意见、备注、原因、描述均受此限；超出需求需评估分表或长文本表（待定）。
 
-### 5.3 13 张表摘要
+### 5.3 14 张表摘要
 
-通用约定：所有表以 `MANDT` 为第一主键列；`ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK` / `ZCRW_SCHED` 统一带 `CREATED_AT` / `CREATED_BY` / `CHANGED_AT` / `CHANGED_BY`（`CHAR14` / `CHAR12`），下表不再重复；`ZCRW_TR` / `ZCRW_HIST` / `ZCRW_NOTE` / `ZCRW_LOG` 使用各自的时间与操作人列（`LINKED_*` / `CHANGED_*` / `CREATED_*` / `TIMESTAMP` / `USER_ID`）。
+通用约定：所有表以 `MANDT` 为第一主键列；`ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK` / `ZCRW_SCHED` 统一带 `CREATED_AT` / `CREATED_BY` / `CHANGED_AT` / `CHANGED_BY`（`CHAR14` / `CHAR12`），下表不再重复；`ZCRW_TR` / `ZCRW_HIST` / `ZCRW_NOTE` / `ZCRW_LOG` / `ZCRW_NOTIFY` 使用各自的时间与操作人列（`LINKED_*` / `CHANGED_*` / `CREATED_*` / `TIMESTAMP` / `USER_ID`）。
 
 | 表 | 用途 | 主键 | 关键字段（摘要） |
 |---|---|---|---|
@@ -320,12 +343,14 @@ User ──< RoleAssignment（全局 / 组件 / 周期）
 | `ZCRW_APPR_CFG` | 审批矩阵 | `PROFILE_ID` CHAR20 + `STEP_NO` NUMC2 | `APPROVER_ROLE` CHAR20、`APPROVER_USER` CHAR12、`OBJECT_TYPE` CHAR10（REQ/CD）、`REQ_TYPE` CHAR4、`PRIORITY` CHAR2、`MANDATORY` CHAR1 |
 | `ZCRW_VERSION` | 版本 / 迁移记录 | `COMPONENT` CHAR20 + `VERSION_NO` CHAR10 | `APPLIED_AT` CHAR14、`APPLIED_BY` CHAR12、`TRANSPORT` CHAR10、`NOTES` CHAR255 |
 | `ZCRW_LOG` | 应用日志 | `LOG_ID` CHAR32 | `TIMESTAMP` CHAR14、`USER_ID` CHAR12、`AREA` CHAR20、`SEVERITY` CHAR10、`MESSAGE` CHAR255、`CONTEXT` CHAR255、`CORRELATION_ID` CHAR32 |
+| `ZCRW_NOTIFY` | 站内通知（个人） | `NOTIFY_ID` CHAR32 | `USER_ID` CHAR12、`NOTIFY_TYPE` CHAR20（APPROVAL_PENDING/APPROVAL_REJECTED/TASK_OVERDUE/SCHED_OVERDUE/INFO）、`OBJECT_TYPE` CHAR10、`OBJECT_ID` CHAR20、`TITLE` CHAR80、`MESSAGE` CHAR255、`LINK_PAGE` CHAR80、`SEVERITY` CHAR10（INFO/WARN/CRITICAL）、`STATUS` CHAR10（UNREAD/READ/DISMISSED）、`DEDUP_KEY` CHAR80、`SOURCE` CHAR10（EVENT/SCAN/API）、`CREATED_AT` CHAR14、`CREATED_BY` CHAR12、`READ_AT` CHAR14 |
 
 补充：
 
 - P2 新增 `ZCRW_ATTACH`（附件，表存 xstring，有大小限制）与 `ZCRW_CFG_*` 细分配置表；一期不建。
 - `PRIORITY` 为 `CHAR2`：`1` 紧急 / `2` 高 / `3` 中 / `4` 低；空 = 未定；规划 §8.3 示例的 `MEDIUM` 不再使用（见 §10 A5 / D11）。
 - 头部 `APPROVAL_STATE`：`NONE` / `PENDING` / `APPROVED` / `REJECTED` / `SKIPPED`（见 §10 A6 / D12）。
+- 通知（M5）：`NOTIFY_TYPE` / `SEVERITY` / `STATUS` / `SOURCE` 四个枚举由 `ZCL_CRW_NOTIFY` 常量约束，禁止 UI 直写；`DEDUP_KEY` 与 `USER_ID` 组合做幂等（§5.8）。
 
 ### 5.4 编号与显示 ID
 
@@ -334,7 +359,7 @@ User ──< RoleAssignment（全局 / 组件 / 周期）
 | CR | NROB `ZCRW_REQ`，区间 `01` | `REQ_ID` CHAR10 零填充 | `CR-0000000123` | `/requests/0000000123` |
 | CD | NROB `ZCRW_CD`，区间 `01` | `CD_ID` CHAR10 零填充 | `CD-0000000123` | `/change-documents/0000000123` |
 | Task / SubTask | NROB `ZCRW_TASK`，区间 `01` | `TASK_ID` CHAR10 零填充 | `T-000000045` / `ST-000000046`（前缀由 `TASK_LEVEL` 决定） | `/tasks/000000045` |
-| 审批 / 历史 / 备注 / 计划 | UUID C32 | `*_ID` CHAR32 | 原样展示 | 原样 |
+| 审批 / 历史 / 备注 / 计划 / 通知 | UUID C32 | `*_ID` CHAR32 | 原样展示 | 原样 |
 
 - API 路径与 `OBJECT_ID` 一律使用**裸 10 位零填充编号**，不带业务前缀；`CR-` / `CD-` / `T-` / `ST-` 前缀只用于 UI 展示，由 `ZCL_CRW_UTIL=>format_id( )` 生成。
 - 不做「按请求类型分号段」；类型体现在展示层前缀，避免号段膨胀。
@@ -345,7 +370,7 @@ User ──< RoleAssignment（全局 / 组件 / 周期）
 | 项 | 现状 | 规则 |
 |---|---|---|
 | 外键 | AFF 未定义 DDIC 外键 | 引用完整性由 service 层校验（父对象存在、层级合法、跨表状态一致）；不做级联删除 |
-| 二级索引 | abap-cli 2.0.0 无建索引入口 | M1 仅主键查询；P1 通过 SAP GUI 或后续 CLI 支持补索引（状态、负责人、请求人、周期、创建时间、指派人、计划时间） |
+| 二级索引 | abap-cli 2.0.0 无建索引入口 | v1 仅主键查询；P2 走 SAP GUI / DB02 补索引（A20 / D20，清单与步骤见 [p2-basis.md](p2-basis.md) §3）；`ZCRW_NOTIFY` 建议评估 `USER_ID + STATUS + CREATED_AT` |
 | 悲观锁 | `EZCRW_REQ` / `EZCRW_CD` 已建 | 关键动作（审批、状态迁移、关联传输、改计划）按对象类型加锁；锁等待超时返回冲突 |
 | 乐观锁 | `VERSION` NUMC6（REQ / CD / TASK） | 更新 `WHERE version = 期望值`；影响 0 行返回 `CONCURRENT_MODIFICATION` |
 | 号段并发 | `NUMBER_GET_NEXT` | 由 SAP 号段保证唯一，不在应用层加锁 |
@@ -364,9 +389,43 @@ User ──< RoleAssignment（全局 / 组件 / 周期）
 
 ### 5.7 数据增长与保留
 
-- `ZCRW_HIST` / `ZCRW_LOG` 只追加，按年增长；报表限时间窗（默认 90 天），历史 / 日志分页加载（首屏 50 条）。
-- 归档 / 清理策略 P2，runbook 说明；一期不删除任何业务行。
-- 测试数据由 `ZCL_CRW_DEMO_DATA`（规划）准备与清理，连续两次重跑结果一致（规划 §9.2）。
+- `ZCRW_HIST` / `ZCRW_LOG` / `ZCRW_NOTIFY` 只追加或按状态更新，按年增长；报表限时间窗（默认 90 天），历史 / 日志 / 通知分页加载（通知默认 20 条 / 页、上限 100）。
+- 归档 / 清理策略 P2，runbook 说明；一期不删除任何业务行。通知的按年归档与应用级清理设计见 [p2-basis.md](p2-basis.md) §4。
+- 测试数据由 `ZCL_CRW_DEMO_DATA`（规划）准备与清理，连续两次重跑结果一致（规划 §9.2）；`ZCL_CRW_TEST_DATA` 复位会清 `ZCRW_NOTIFY`。
+
+### 5.8 通知模型、触发点与去重（v1.2.0）
+
+**归属与枚举**
+
+- 每条通知归属一个 `USER_ID`；读写 API 只返回 / 只更新当前用户的通知，服务层强制过滤，跨用户请求返回 `NOT_FOUND`。
+- `NOTIFY_TYPE`：`APPROVAL_PENDING` / `APPROVAL_REJECTED` / `TASK_OVERDUE` / `SCHED_OVERDUE` / `INFO`；`SEVERITY`：`INFO` / `WARN` / `CRITICAL`（`CRITICAL` 枚举预留，当前生成方使用 `INFO` / `WARN`）；`STATUS`：`UNREAD` / `READ` / `DISMISSED`（`DISMISSED` 枚举预留，本期无 dismiss 端点）；`SOURCE`：`EVENT` / `SCAN` / `API`。
+
+**触发点与接收人**
+
+| 触发 | 生成方 | 接收人 | `NOTIFY_TYPE` | `DEDUP_KEY` | `SOURCE` |
+|---|---|---|---|---|---|
+| 审批步骤生成（CR `SUBMIT` / CD `SUBMIT_APPROVAL`） | `ZCL_CRW_APPR_SVC` → `notify_approval_pending` | 当前步骤审批人 | `APPROVAL_PENDING` | `APPR:{APPR_ID}` | `EVENT` |
+| 审批驳回 | `ZCL_CRW_APPR_SVC` → `notify_approval_rejected` | 请求人（`APPROVER` 不能自审） | `APPROVAL_REJECTED` | `REJ:{OBJECT_TYPE}:{OBJECT_ID}:{APPR_ID}` | `EVENT` |
+| 用户刷新 / 打开通知（`POST /notifications/refresh`） | `ZCL_CRW_NOTIFY=>refresh_for_user` | 当前用户；计划逾期仅 `CHANGE_MANAGER` / `ADMIN` | 待审批 / 任务逾期 / 计划逾期 | `APPR:{APPR_ID}` / `TASK_OVERDUE:{TASK_ID}:{DUE_DATE}` / `SCHED_OVERDUE:{SCHED_ID}:{SCHEDULED_AT}` | `SCAN` |
+| 每日报表 `ZCRW_REMIND_JOB`（SM36） | `ZCL_CRW_NOTIFY=>run_scan` | 待审批 → 审批人；逾期任务 → 指派人；逾期计划 → `CHANGE_MANAGER` + `ADMIN` | 同上 | 同上一行 | `SCAN` |
+| 演示数据 | `ZCL_CRW_DEMO_DATA` | 当前用户 | `INFO` | `DEMO:INFO:{USER}` | `API` |
+
+- 任务逾期扫描条件：`DUE_DATE < sy-datum` 且非 `DONE` / `CANCELLED`；计划逾期条件：`STATUS = PLANNED` 且 `SCHEDULED_AT < now`；扫描单类最多取 500 行（`gc_max_scan_rows`），避免一次作业过大。
+- 通知生成失败（异常）被吞掉，**不阻塞审批 / 扫描主流程**；邮件通道未启用时同样不影响站内通知落库。
+
+**去重规则**
+
+- 幂等键 = `USER_ID + DEDUP_KEY`（服务层先查后写）；同键通知已存在（含已读 / 已忽略）时**不再创建**，返回原通知 id 且 `created=false`。
+- 因此 `run_scan` / `refresh` 可重复执行；跨天需要重新提醒时由 `DEDUP_KEY` 中的日期（如 `DUE_DATE`）区分。
+- `DEDUP_KEY` 超 80 字符时截断（与 DDIC 长度一致），截断后仍保证同一业务事件键稳定。
+
+**已读 / 未读语义与刷新时机**
+
+- `UNREAD`：新建默认；`mark_read` 仅把 `UNREAD → READ` 并写 `READ_AT`（幂等：已读行不产生更新，计 0）；`mark_all_read` 批量更新当前用户全部 `UNREAD`。
+- `unread_count` 统计 `USER_ID + UNREAD`；前端顶栏徽标 60 秒轮询一次（只读），页面动作 / 路由变化后按事件刷新。
+- 刷新时机：应用启动（一次 `POST /notifications/refresh`，失败不阻塞）、打开铃铛下拉（先 refresh 再取最近 5 条未读）、打开 `#/notifications` 页面、页面手动「刷新」、每日 `ZCRW_REMIND_JOB`。
+- 列表：`status` 过滤在数据库侧（`ALL` / `UNREAD` / `READ` / `DISMISSED`），`type` 过滤在内存（v1 表量小），按 `CREATED_AT DESC` 排序，`page` 默认 1、`size` 默认 20 / 上限 100。
+- 邮件：`emit` 落库后调用预留方法 `deliver_email`；SMTP 未配置时不发信、不影响站内通知。启用与边界见 [workflow.md](workflow.md) §9.6、[p2-basis.md](p2-basis.md) §7.1。
 
 ---
 
@@ -465,6 +524,19 @@ User ──< RoleAssignment（全局 / 组件 / 周期）
 |---|---|---|
 | GET | `/schedules` | 计划列表（按日期 / 周期 / 目标系统） |
 | POST | `/schedules/{id}/actions` | 改期 / 取消 / 确认完成 |
+
+**通知（M5 / v1.2.0）**
+
+| 方法 | 路径 | 用途 | 写保护 |
+|---|---|---|---|
+| GET | `/notifications?status=&type=&page=&size=` | 当前用户通知列表（`status`：`ALL` / `UNREAD` / `READ` / `DISMISSED`；`type`：通知类型） | — |
+| GET | `/notifications/unread-count` | 当前用户未读数 `{count}` | — |
+| POST | `/notifications/refresh` | 触发当前用户的扫描并返回 `{created,unread}` | `X-CRW-Request: 1` |
+| POST | `/notifications/{id}/read` | 标记单条已读，返回 `{id,status,unread}` | `X-CRW-Request: 1` |
+| POST | `/notifications/read-all` | 全部标记已读，返回 `{updated,unread}` | `X-CRW-Request: 1` |
+
+- 通知无 `version`（个人通知不走乐观锁）；`{id}` 不属于当前用户时返回 `NOT_FOUND`。
+- 通知不做 `POST …/actions`，标记已读是独立端点（`/read`、`/read-all`）；`status=DISMISSED` 枚举预留、无 dismiss 端点。
 
 **配置与报表**
 
@@ -578,6 +650,7 @@ POST /api/v1/transports/link
 
 - 401 已冻结（§10 A1 / D21）：`/api/v1/*` 未登录返回 JSON 401 `UNAUTHORIZED`；页面路径由 ICF 登录过程重定向。
 - 内部异常码到 API 错误码的映射在 router 层集中完成：`ZCX_CRW_ERROR.MV_CODE` 的 `NR_*` → `NUMBER_RANGE_ERROR`，`ZCRW_MSG` 001 / 004 / 006 / 007 / 008 → `NOT_FOUND`，002 → `INVALID_TRANSITION`，003 → `GUARD_FAILED`，005 → `FORBIDDEN`。
+- 通知（M5）复用上述映射：`NOTIFY_NOT_FOUND` → `NOT_FOUND`(404)，`VALIDATION_ERROR`(400)（缺少 `id` / 非法类型 / 非法分页），`NOTIFY_UUID` / `NOTIFY_INSERT` → `INTERNAL_ERROR`(500)；不新增对外错误码。
 
 ### 6.5 并发与幂等
 
@@ -597,7 +670,7 @@ POST /api/v1/transports/link
 
 ### 6.7 v1 冻结点：DTO、动作、参数与排序白名单
 
-> 2026-11-01 冻结（Phase 1）；与 §10 决议、[workflow.md](workflow.md) §12 决议一致。字段**只增不删**；DDIC 字段 ↔ DTO 映射只在 controller / DTO 层完成。
+> 2026-11-01 冻结（Phase 1）；与 §10 决议、[workflow.md](workflow.md) §13 决议一致。字段**只增不删**；DDIC 字段 ↔ DTO 映射只在 controller / DTO 层完成。
 
 **通用规则**
 
@@ -643,6 +716,9 @@ RoleRow     { userId, role, scopeType, scopeId, validFrom, validTo }
 MatrixRow   { profileId, stepNo, approverRole, approverUser, objectType, reqType, priority, mandatory }
 History     { id, objectType, objectId, action, field, oldValue, newValue, comment, changedBy, changedAt, source }
 Note        { id, objectType, objectId, author, text, createdAt, visibility }
+Notification { id, notifyType:"APPROVAL_PENDING|APPROVAL_REJECTED|TASK_OVERDUE|SCHED_OVERDUE|INFO",
+              objectType, objectId, objectDisplayId, title, message, linkPage,
+              severity:"INFO|WARN|CRITICAL", status:"UNREAD|READ|DISMISSED", createdAt, readAt }
 ChangesRpt  { byStatus:[{key,count}], byType:[{key,count}], byPriority:[{key,count}],
               trend:[{date,created,closed}] }
 DurationRpt { approval:{avgHours,minHours,maxHours,count}, closure:{avgHours,minHours,maxHours,count} }
@@ -660,6 +736,17 @@ ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,
 | `/approvals` | `scope=mine\|decided\|all`（默认 `mine`） |
 | `/transports` | `cdId` `trKind` `targetSystem` `syncState` `q`(trkorr/描述) |
 | `/schedules` | `from` `to` `targetSystem` `status` `objectType` `overdue=true` |
+| `/notifications` | `status=ALL\|UNREAD\|READ\|DISMISSED`（默认 `ALL`）、`type=<NOTIFY_TYPE>`、`page`（默认 1）、`size`（默认 20，上限 100）；仅返回当前用户数据 |
+
+**通知写端点（不走 `…/actions`）**
+
+| 端点 | body / 语义 | 返回 |
+|---|---|---|
+| `POST /notifications/refresh` | 无 body；触发当前用户扫描并落库 | `{created,unread}` |
+| `POST /notifications/{id}/read` | 无 body；仅本人通知，`UNREAD → READ` 才更新 | `{id,status:"READ",unread}` |
+| `POST /notifications/read-all` | 无 body；当前用户全部 `UNREAD → READ` | `{updated,unread}` |
+
+- 通知端点无 `version`；`X-CRW-Request: 1` 写保护同样适用；`{id}` 不存在或不属于当前用户 → `NOT_FOUND`。
 
 **动作与专属参数（`POST …/actions`，body `{action, version, comment?, …}`）**
 
@@ -711,7 +798,7 @@ ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,
 | 其它非 API GET | SPA fallback：返回 `index.html`（200），保证直接访问子路径 / 刷新不 404 |
 
 - MIME 根：`/zcrw`；前端资产在 `src/mime/`，用 `mime create` + `mime push src/mime --root /zcrw` 上传。
-- 当前 `src/mime/` 为空；MIME 目录 / 文件、子目录、SPA fallback 随 M1 前端一起验证（规划附录 B.2 #7 / #8）。
+- MIME 目录 / 文件、子目录、SPA fallback 已随 M1 前端一起验证（规划附录 B.2 #7 / #8）；新增页面 / 样式随每次前端变更按层级重推（runbook S9）。
 - 不提交构建产物；不引用 CDN、外部字体与图标库。
 
 ### 7.3 缓存与响应头
@@ -726,11 +813,11 @@ ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,
 
 ### 7.4 安装顺序
 
-域 / 数据元素（如需）→ 表 → 号段对象 → 锁对象 → 消息类 → 类 / 接口 → ICF 节点 → 事务码 → MIME → `ZCL_CRW_BOOTSTRAP` → `ZCL_CRW_MIGRATION` → `ZCL_CRW_SELFCHECK`。
+域 / 数据元素（如需）→ 表（14 张，含 `ZCRW_NOTIFY`）→ 号段对象 → 锁对象 → 消息类 → 类 / 接口（含 `ZCL_CRW_NOTIFY` / `ZCL_CRW_API_NOTIFY`）→ 报表程序 `ZCRW_REMIND_JOB` → ICF 节点 → 事务码 → MIME → `ZCL_CRW_BOOTSTRAP` → `ZCL_CRW_MIGRATION` → `ZCL_CRW_SELFCHECK`。
 
 - 主对象上报前必须 `abap check content`（`.abap`）/ `abap validate:aff`（JSON）；写 SAP 顺序 `check syntax` → `push` → `inspect --activation`。
-- 当前已验证到「13 表 + 3 号段 + 消息类 + 2 锁对象 + 服务骨架」；ICF / MIME / TRAN / ICF 认证留 M1（规划附录 B.2）。
-- 详细命令与排障见 `docs/runbook.md`（待写）。
+- M5 起已交付「14 表 + 3 号段 + 消息类 + 2 锁对象 + 通知服务 / 控制器 + 提醒报表 + 前端 16 页面（含 `#/notifications`）」；ICF / MIME / TRAN / ICF 认证已随 M1 前端验证（规划附录 B.2）。M5 实测：selfcheck `tables=14 version=1.2.0 notifications=0`（复位后）、单测 4 套全绿（util 4 / workflow 10 / json 8 / notify 5）、M1 smoke、演示数据（notifications=2）、提醒报表与通知 API 控制器探针均通过；浏览器 HTTP 端到端待人工复核。
+- 详细命令与排障见 [runbook.md](runbook.md)。
 
 ### 7.5 事务码
 
@@ -742,7 +829,7 @@ ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,
 ### 7.6 本地包限制与部署边界
 
 - `$CRW` 为本地包（super package `$TMP`，DLVUNIT LOCAL，无 transport）：对象不产生 transport，**不可跨系统部署**到 QA / 生产。
-- 本地包不可传输；若后续要产品化部署，需迁移到可传输包（P2 再评估）。
+- 本地包不可传输；若后续要产品化部署，需迁移到可传输包（P2 只出设计，路径 / CLI 限制 / 验收见 [p2-basis.md](p2-basis.md) §2，本轮暂不做）。
 - abap-cli 升级后必须重新 `abap deploy --yes` 并确认 `deploy status` current，否则 DDIC / ICF 写路径可能失败。
 
 ---
@@ -769,6 +856,7 @@ ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,
 - 角色存于 `ZCRW_ROLE`：`USER_ID` + `ROLE` + `SCOPE_TYPE`（GLOBAL / COMPONENT / CYCLE）+ `SCOPE_ID` + 有效期 `VALID_FROM` / `VALID_TO`。
 - 角色编码已冻结（§10 A7 / W10）：`REQUESTER` / `CHANGE_MANAGER` / `DEVELOPER` / `TESTER` / `RELEASE_MANAGER` / `ADMIN`（`VIEWER` P2）。
 - bootstrap 把当前执行用户初始化为 `ADMIN`（初始管理员）；后续角色分配走管理界面（P1）或 runbook 手工步骤。
+- 通知数据范围：只返回 / 只更新本人通知（`USER_ID = 当前用户`）；计划逾期提醒仅发给 `CHANGE_MANAGER` / `ADMIN`（`run_scan` 与 `refresh_for_user` 一致）。
 
 ### 8.3 服务端鉴权与数据范围
 
@@ -797,7 +885,7 @@ ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,
 
 ### 9.1 版本标识
 
-- `ZCRW_VERSION`（`COMPONENT` + `VERSION_NO`）记录已应用版本；bootstrap 种 `CRW` / `1.0.0`。
+- `ZCRW_VERSION`（`COMPONENT` + `VERSION_NO`）记录已应用版本；bootstrap 种 `CRW` / `1.2.0`（版本路径：1.0.0 → 1.1.0 → 1.2.0，M5 通知中心）。
 - `/health` 返回版本与组件状态；页面显示版本；枚举已冻结（§10 A10）：`status` = `ok|degraded|down`，`components` = `{icf,tables,numberRanges,approvalMatrix,cts,version}`。
 
 ### 9.2 Bootstrap 与 Migration
@@ -809,8 +897,8 @@ ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,
 
 ### 9.3 Selfcheck 契约
 
-- 只读；输出固定标记 `CRW_SELFCHECK_OK tables=13 rows=… intervals=3 version=… messages=… roles=… approvals=… icf=OK cts=OK`；失败输出 `CRW_SELFCHECK_FAIL …`。
-- 覆盖：13 表可读、3 个号段区间、最新版本行、`ZCRW_MSG` 消息数、ADMIN 角色、审批矩阵种子行、**ICF 节点存在（TADIR SICF）**、**E070 只读**（A11 / D23 已实现；CTS 读取失败降级为 `cts=DEGRADED`，ICF 缺失判 FAIL）。
+- 只读；输出固定标记 `CRW_SELFCHECK_OK tables=14 rows=… intervals=3 version=… messages=… roles=… approvals=… notifications=… icf=OK cts=OK`；失败输出 `CRW_SELFCHECK_FAIL …`。
+- 覆盖：14 表可读（含 `ZCRW_NOTIFY`）、通知行数、3 个号段区间、最新版本行、`ZCRW_MSG` 消息数、ADMIN 角色、审批矩阵种子行、**ICF 节点存在（TADIR SICF）**、**E070 只读**（A11 / D23 已实现；CTS 读取失败降级为 `cts=DEGRADED`，ICF 缺失判 FAIL）。
 - 用于只读验收：`abap run ZCL_CRW_SELFCHECK --json`（只读白名单内）。
 
 ### 9.4 日志与可观测
@@ -823,11 +911,12 @@ ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,
 
 1. CLI 升级后 `abap deploy --yes`，确认 `deploy status` = current。
 2. `abap check content` / `abap validate:aff` 静态校验。
-3. 按依赖顺序 `check syntax` → `push` → `inspect --activation`。
-4. 运行 `ZCL_CRW_BOOTSTRAP`（补号段 / 种子）。
+3. 按依赖顺序 `check syntax` → `push` → `inspect --activation`（M5 顺序：DDIC 表 → `ZCL_CRW_NOTIFY` → `ZCL_CRW_API_NOTIFY` / `_API_MAP` / `_API_TYPES` / `_API_ROUTER` → `ZCRW_REMIND_JOB` → `ZCL_CRW_HTTP_HANDLER`）。
+4. 运行 `ZCL_CRW_BOOTSTRAP`（补号段 / 种子 / 版本 1.2.0）。
 5. 运行 `ZCL_CRW_MIGRATION`（按版本执行）。
-6. 运行 `ZCL_CRW_SELFCHECK`，确认 `CRW_SELFCHECK_OK`。
-7. 前端资产 `mime push`；页面版本号与 `/health` 一致。
+6. 运行 `ZCL_CRW_SELFCHECK`，确认 `CRW_SELFCHECK_OK`（`tables=14`、`version=1.2.0`）。
+7. 前端资产 `mime push`；页面版本号与 `/health` 一致（M5 含 `js/pages/notifications.js`）。
+8. 需要每日提醒时，由 basis 按 [runbook.md](runbook.md) §2.13 建 `SM36` 作业 `ZCRW_REMIND`（本轮不建）。
 
 ### 9.6 回滚
 
@@ -856,11 +945,19 @@ ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,
 | A15 | 写请求头缺失 / 非同源错误码 | 安全用例 | `VALIDATION_ERROR`(400)（缺 `X-CRW-Request: 1` 或值不为 1） |
 | A16 | `PATCH` 局部更新语义 | API 契约、前端表单 | 只更新请求体出现的键；空字符串清空；未出现不变；`version` 必填（§6.7） |
 | A17 | 应用级回滚流程与数据兼容 | 升级运维 | runbook：AFF 重推上一版本 + bootstrap/migration 幂等；数据不回滚；表结构变更需删除重建 |
-| A18 | 数据保留 / 归档策略 | 性能、存储 | P2；runbook 说明手工导出；一期不删除任何业务行 |
-| A19 | 可传输包迁移路径 | 产品化部署 | P2；`$CRW` 本地包不可跨系统，AFF 为唯一来源，迁移时重建包后 push |
-| A20 | 索引创建方式与查询路径 | 列表性能 | v1 不建二级索引（CLI 无入口）；1 万 CR 压测后 GUI / DB02 按需建（D20） |
+| A18 | 数据保留 / 归档策略 | 性能、存储 | P2；只出设计（SARA/AOBJ、按年归档 HIST/LOG/NOTIFY，见 [p2-basis.md](p2-basis.md) §4）；一期不删除任何业务行 |
+| A19 | 可传输包迁移路径 | 产品化部署 | P2；本轮**暂不做**（保持 `$CRW` 本地包，不可跨系统）；路径 / CLI 限制 / 验收见 [p2-basis.md](p2-basis.md) §2 |
+| A20 | 索引创建方式与查询路径 | 列表性能 | v1 不建二级索引（CLI 无入口）；**后置**（A20 / D20）；建议清单与 SE11 步骤见 [p2-basis.md](p2-basis.md) §3 |
 | A21 | `NEW` 状态 CR 删除语义 | 数据完整性、审计 | 不提供物理/软删除 API；`NEW` 可 `CANCEL`（原因必填），审计只追加（D17） |
 | A22 | 状态机 / 仓储分层与审计类命名 | 分层一致性、可测试性 | M2 抽 `ZCL_CRW_WORKFLOW`（纯逻辑）+ `ZCL_CRW_AUTH`；`ZCL_CRW_AUDIT` 不重命名；仓储层单拆留 P2（D19） |
+
+### 10.1 v1.2.0 增补决议（2026-11-02，通知中心）
+
+| 编号 | 问题 | 决议 |
+|---|---|---|
+| N1 | 通知模型与去重 | 独立表 `ZCRW_NOTIFY`，按 `USER_ID` 归属；`NOTIFY_TYPE` / `SEVERITY` / `STATUS` / `SOURCE` 枚举固定；幂等键 `USER_ID + DEDUP_KEY`，已存在（含已读）不重复创建；扫描幂等（对应规划 D24，语义见 §5.8） |
+| N2 | 邮件通道 | `ZCL_CRW_NOTIFY=>deliver_email` 预留；SMTP / SCOT 未配置前不发信、不阻塞站内通知与业务动作；启用步骤见 [p2-basis.md](p2-basis.md) §7.1、[workflow.md](workflow.md) §9.6（对应规划 D25） |
+| N3 | P2 basis 类项 | 包迁移（A19）、索引（A20 / D20）、归档（A18）、权限对象（A8）、Fiori（D22）本轮**只出设计**，见 [p2-basis.md](p2-basis.md)；本轮暂不做 / 后置的决策记录同步到规划 §12.3 |
 
 
 ---
@@ -868,6 +965,7 @@ ToCRpt      { funnel:[{stage,count}], items:[{trkorr,cdId,targetSystem,trStatus,
 ## 11. 参考
 
 - [CRW 规划](../../../docs/change-request-workbench-plan.md)：范围、决策 D1–D10、里程碑与验收、M0 验证结果。
-- [workflow.md](workflow.md)：状态机、审批矩阵、CTS 只读集成、导入计划、审计与错误语义。
+- [workflow.md](workflow.md)：状态机、审批矩阵、CTS 只读集成、导入计划、通知、审计与错误语义。
+- [p2-basis.md](p2-basis.md)：P2 basis 类项（包迁移 / 索引 / 归档 / 权限对象 / Fiori）设计与可执行清单。
 - [README](../README.md)：产品说明、当前状态、安装与验证命令。
 - [`AGENTS.md`](../../../AGENTS.md) §4A：应用单元契约（目录、命名、包与写路径、DoD）。

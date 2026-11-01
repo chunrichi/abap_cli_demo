@@ -3,7 +3,16 @@
  * 零依赖原生 ES modules；启动时先取 /me（身份与角色），再启动 hash 路由。
  */
 
-import { api, describeError, onUnauthorized } from './api.js';
+import {
+  api,
+  describeError,
+  onUnauthorized,
+  listNotifications,
+  unreadNotificationCount,
+  refreshNotifications,
+  markNotificationRead,
+  markAllNotificationsRead
+} from './api.js';
 import * as store from './store.js';
 import * as ui from './ui.js';
 import { start as startRouter } from './router.js';
@@ -13,7 +22,8 @@ const NAV = [
     group: '工作台',
     items: [
       { name: 'dashboard', hash: '#/dashboard', icon: 'dashboard', label: '工作台首页', match: ['dashboard'] },
-      { name: 'my-work', hash: '#/my-work', icon: 'work', label: '我的工作', match: ['my-work'] }
+      { name: 'my-work', hash: '#/my-work', icon: 'work', label: '我的工作', match: ['my-work'] },
+      { name: 'notifications', hash: '#/notifications', icon: 'inbox', label: '通知', match: ['notifications'], badge: 'notifications' }
     ]
   },
   {
@@ -69,6 +79,11 @@ const state = {
   booted: false,
   badgeTimer: 0,
   badgeLoadedAt: 0,
+  notifyLoadedAt: 0,
+  notifyTimer: 0,
+  notifyItems: [],
+  notifyBusy: false,
+  notifyWarned: false,
   sessionWarned: false,
   bootTimer: null
 };
@@ -159,6 +174,26 @@ function shellHtml() {
       <a class="icon-btn" href="#/approvals" title="我的待审批" aria-label="我的待审批">
         ${ui.icon('approval', 16)}<span class="count hidden" data-shell-count="approvals"></span>
       </a>
+      <div class="notify-menu">
+        <button type="button" class="icon-btn notify-btn" data-shell="notify-toggle" title="通知中心" aria-label="通知中心" aria-haspopup="true" aria-expanded="false">
+          ${ui.icon('inbox', 16)}<span class="count hidden" data-shell-count="notifications"></span>
+        </button>
+        <div class="dropdown notify-dropdown" data-shell="notify-dropdown" hidden>
+          <div class="dropdown-head">
+            <div class="dropdown-title">通知</div>
+            <div class="dropdown-sub" data-notify-summary>正在加载…</div>
+          </div>
+          <div class="notify-list" data-notify-list></div>
+          <div class="notify-foot">
+            <button type="button" class="dropdown-item notify-foot-btn" data-shell="notify-read-all">
+              ${ui.icon('check', 15)}全部已读
+            </button>
+            <a class="dropdown-item notify-foot-btn" href="#/notifications" data-shell="notify-more">
+              ${ui.icon('chevronRight', 15)}查看全部通知
+            </a>
+          </div>
+        </div>
+      </div>
       <div class="user-menu">
         <button type="button" class="user-btn" data-shell="user-toggle" aria-haspopup="true" aria-expanded="false">
           <span class="avatar">${ui.esc(String(store.displayName()).slice(0, 1))}</span>
@@ -264,6 +299,228 @@ async function refreshBadges(force) {
   }
 }
 
+/* ---------------------------- Notification bell ---------------------------- */
+
+function closeNotifyMenu() {
+  const dropdown = document.querySelector ? document.querySelector('[data-shell="notify-dropdown"]') : null;
+  const btn = document.querySelector ? document.querySelector('[data-shell="notify-toggle"]') : null;
+  if (dropdown) dropdown.hidden = true;
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+
+/** linkPage only accepts in-app hashes (#/...); invalid or empty falls back to the notifications page. */
+function safeNotifyLink(linkPage) {
+  const raw = linkPage ? String(linkPage).trim() : '';
+  return /^#\/[^\s]*$/.test(raw) ? raw : '#/notifications';
+}
+
+function notifyItemHtml(item) {
+  const row = item || {};
+  const typeEntry = ui.NOTIFY_TYPE[row.notifyType] || { zh: '通知', tone: 'info' };
+  const severity = String(row.severity || '').toUpperCase();
+  const severityClass = severity === 'CRITICAL' ? ' sev-critical' : severity === 'WARN' ? ' sev-warn' : '';
+  const meta = [typeEntry.zh, row.objectDisplayId ? String(row.objectDisplayId) : ''].filter(Boolean).join(' · ');
+  return `<button type="button" class="notify-item${severityClass}" data-notify-id="${ui.esc(row.id)}">
+    <span class="notify-dot" aria-hidden="true"></span>
+    <span class="notify-main">
+      <span class="notify-item-head">
+        <span class="notify-item-title">${ui.esc(row.title || typeEntry.zh)}</span>
+        <span class="notify-item-time">${ui.fmtRelative(row.createdAt)}</span>
+      </span>
+      <span class="notify-item-msg">${ui.esc(ui.truncate(row.message || '', 72))}</span>
+      <span class="notify-item-meta">${ui.esc(meta)}</span>
+    </span>
+  </button>`;
+}
+
+function renderNotifyPanel(items) {
+  const listEl = document.querySelector ? document.querySelector('[data-notify-list]') : null;
+  const summary = document.querySelector ? document.querySelector('[data-notify-summary]') : null;
+  const rows = Array.isArray(items) ? items : [];
+  if (summary) summary.textContent = rows.length > 0 ? '最近 ' + rows.length + ' 条未读' : '暂无未读通知';
+  if (!listEl) return;
+  if (rows.length === 0) {
+    listEl.innerHTML = `<div class="notify-empty">${ui.icon('check', 16)}<span>没有未读通知</span></div>`;
+    return;
+  }
+  listEl.innerHTML = rows.map(notifyItemHtml).join('');
+}
+
+/** Show the refresh failure toast once (startup and panel loading may both fail). */
+function notifyWarnOnce(err) {
+  if (state.notifyWarned) return;
+  state.notifyWarned = true;
+  const info = describeError(err);
+  ui.toast(info.message, { title: '通知刷新失败', type: 'warn', correlationId: info.correlationId });
+}
+
+/** Open the panel: trigger a refresh scan first, then load the latest 5 unread items. */
+async function loadNotifyPanel() {
+  if (state.notifyBusy) return;
+  state.notifyBusy = true;
+  const listEl = document.querySelector ? document.querySelector('[data-notify-list]') : null;
+  const summary = document.querySelector ? document.querySelector('[data-notify-summary]') : null;
+  if (listEl) listEl.innerHTML = '<div class="notify-empty"><span>正在加载…</span></div>';
+  if (summary) summary.textContent = '正在加载…';
+  try {
+    let refreshed = null;
+    try {
+      refreshed = await refreshNotifications();
+    } catch (err) {
+      notifyWarnOnce(err);
+    }
+    const data = await listNotifications({ status: 'UNREAD', size: 5 });
+    const items = ui
+      .listOf(data)
+      .filter((item) => item && item.status !== 'DISMISSED')
+      .slice(0, 5);
+    state.notifyItems = items;
+    const serverUnread = refreshed && refreshed.unread !== undefined ? Number(refreshed.unread) : NaN;
+    const totalUnread = Number.isFinite(serverUnread) ? serverUnread : Number(data && data.total);
+    applyBadge('notifications', Number.isFinite(totalUnread) ? Math.max(0, totalUnread) : items.length);
+    state.notifyLoadedAt = Date.now();
+    renderNotifyPanel(items);
+  } catch (err) {
+    const info = describeError(err);
+    if (summary) summary.textContent = '加载失败';
+    if (listEl) {
+      listEl.innerHTML =
+        `<div class="notify-empty notify-empty-error">` +
+        `<span>${ui.esc(info.message)}</span>` +
+        `<button type="button" class="btn btn-sm" data-shell="notify-retry">重试</button>` +
+        `</div>`;
+    }
+  } finally {
+    state.notifyBusy = false;
+  }
+}
+
+/** Unread badge: refreshed on route change / page actions, plus 60s polling (read-only). */
+async function refreshNotifyBadge(force) {
+  const now = Date.now();
+  if (!force && now - state.notifyLoadedAt < 15000) return;
+  state.notifyLoadedAt = now;
+  try {
+    const data = await unreadNotificationCount();
+    if (!data || data.count === undefined || data.count === null) return;
+    const count = Number(data.count);
+    if (Number.isFinite(count)) applyBadge('notifications', Math.max(0, count));
+  } catch (err) {
+    /* unread badge failures must not block the app */
+  }
+}
+
+function bindNotifyEvents(app) {
+  if (!app) return;
+  const toggle = app.querySelector('[data-shell="notify-toggle"]');
+  const dropdown = app.querySelector('[data-shell="notify-dropdown"]');
+  if (toggle && dropdown) {
+    toggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (!dropdown.hidden) {
+        closeNotifyMenu();
+        return;
+      }
+      closeUserMenu();
+      dropdown.hidden = false;
+      toggle.setAttribute('aria-expanded', 'true');
+      loadNotifyPanel();
+    });
+  }
+
+  ui.delegate(app, '[data-notify-id]', 'click', async (event, el) => {
+    const id = el.getAttribute('data-notify-id');
+    const row = state.notifyItems.find((item) => String(item.id) === String(id)) || null;
+    const target = safeNotifyLink(row ? row.linkPage : '');
+    if (id) {
+      try {
+        const result = await markNotificationRead(id);
+        if (result && result.unread !== undefined) {
+          const unread = Number(result.unread);
+          if (Number.isFinite(unread)) {
+            applyBadge('notifications', Math.max(0, unread));
+            state.notifyLoadedAt = Date.now();
+          }
+        }
+      } catch (err) {
+        const info = describeError(err);
+        ui.toast(info.message, { title: '标记已读失败', type: 'warn', correlationId: info.correlationId });
+      }
+    }
+    state.notifyItems = state.notifyItems.filter((item) => String(item.id) !== String(id));
+    closeNotifyMenu();
+    if (typeof window !== 'undefined' && window.location) window.location.hash = target;
+  });
+
+  ui.delegate(app, '[data-shell="notify-retry"]', 'click', () => loadNotifyPanel());
+
+  ui.delegate(app, '[data-shell="notify-read-all"]', 'click', async (event, el) => {
+    event.stopPropagation();
+    ui.setBusy(el, true, '处理中…');
+    try {
+      const result = await markAllNotificationsRead();
+      const updated = result && result.updated !== undefined ? Number(result.updated) || 0 : 0;
+      const unread = result && result.unread !== undefined ? Math.max(0, Number(result.unread) || 0) : 0;
+      applyBadge('notifications', unread);
+      state.notifyLoadedAt = Date.now();
+      state.notifyItems = [];
+      ui.toast(updated > 0 ? '已全部标记为已读（' + updated + ' 条）。' : '没有未读通知。', { type: 'success' });
+      await loadNotifyPanel();
+    } catch (err) {
+      const info = describeError(err);
+      ui.toast(info.message, { title: '操作失败', type: 'error', correlationId: info.correlationId });
+    } finally {
+      ui.setBusy(el, false);
+    }
+  });
+
+  ui.delegate(app, '[data-shell="notify-more"]', 'click', () => closeNotifyMenu());
+
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('click', (event) => {
+      if (!dropdown || dropdown.hidden) return;
+      const target = event.target;
+      if (target && typeof target.closest === 'function' && target.closest('.notify-menu')) return;
+      closeNotifyMenu();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (!event || event.key !== 'Escape') return;
+      closeNotifyMenu();
+      closeUserMenu();
+    });
+  }
+}
+
+/** Start 60s unread polling and listen for unread changes broadcast by pages. */
+function startNotifyPolling() {
+  if (typeof window === 'undefined') return;
+  refreshNotifyBadge(true);
+  if (state.notifyTimer) clearInterval(state.notifyTimer);
+  state.notifyTimer = setInterval(() => {
+    refreshNotifyBadge(false);
+  }, 60000);
+  window.addEventListener('crw:notify-changed', (event) => {
+    const detail = event && event.detail ? event.detail : {};
+    const unread = detail.unread;
+    if (unread === undefined || unread === null) return;
+    const count = Number(unread);
+    if (!Number.isFinite(count)) return;
+    applyBadge('notifications', Math.max(0, count));
+    state.notifyLoadedAt = Date.now();
+    state.notifyItems = [];
+  });
+}
+
+/** Run one refresh scan on startup; failure shows one toast and never blocks boot. */
+function bootNotifyRefresh() {
+  refreshNotifications()
+    .then((data) => {
+      const unread = data && data.unread !== undefined ? Number(data.unread) : NaN;
+      if (Number.isFinite(unread)) applyBadge('notifications', Math.max(0, unread));
+    })
+    .catch((err) => notifyWarnOnce(err));
+}
+
 function showSessionWarning() {
   if (state.sessionWarned) return;
   state.sessionWarned = true;
@@ -293,6 +550,7 @@ function bindShell() {
     userBtn.addEventListener('click', (event) => {
       event.stopPropagation();
       const willOpen = dropdown.hidden;
+      if (willOpen) closeNotifyMenu();
       dropdown.hidden = !willOpen;
       userBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
     });
@@ -311,9 +569,11 @@ function bindShell() {
     refreshBtn.addEventListener('click', () => {
       closeUserMenu();
       refreshBadges(true);
-      ui.toast('已刷新待办计数；页面数据可重新进入当前页加载。', { type: 'success' });
+      refreshNotifyBadge(true);
+      ui.toast('已刷新待办计数与通知未读数；页面数据可重新进入当前页加载。', { type: 'success' });
     });
   }
+  bindNotifyEvents(app);
   // 恢复侧栏折叠状态
   try {
     if (typeof localStorage !== 'undefined' && localStorage.getItem('crw.sidebar') === 'collapsed') {
@@ -367,12 +627,16 @@ async function boot() {
   app.setAttribute('aria-busy', 'false');
   app.innerHTML = shellHtml();
   bindShell();
+  startNotifyPolling();
   startRouter(document.getElementById('page'), {
     onRouteChange: (route) => {
       updateNav(route);
+      closeNotifyMenu();
       refreshBadges(false);
+      refreshNotifyBadge(false);
     }
   });
+  bootNotifyRefresh();
 }
 
 onUnauthorized(showSessionWarning);

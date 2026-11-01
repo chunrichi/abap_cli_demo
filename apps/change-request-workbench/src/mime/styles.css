@@ -2289,6 +2289,189 @@ tr.sub-row td {
   border: 0;
 }
 
+/* ---------- In-app notifications ---------- */
+
+.notify-menu {
+  position: relative;
+}
+
+.notify-btn .count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+  box-sizing: content-box;
+}
+
+.notify-dropdown {
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  padding: 0;
+  overflow: hidden;
+}
+
+.notify-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.notify-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.notify-item:last-child {
+  border-bottom: 0;
+}
+
+.notify-item:hover {
+  background: var(--surface-2);
+}
+
+.notify-item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.notify-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex: 0 0 8px;
+}
+
+.notify-item.sev-warn .notify-dot {
+  background: var(--warn);
+}
+
+.notify-item.sev-critical .notify-dot {
+  background: var(--danger);
+}
+
+.notify-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.notify-item-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.notify-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notify-item-time {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.notify-item-msg,
+.notify-item-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notify-item-msg {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.notify-item-meta {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.notify-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 26px 14px;
+  color: var(--text-3);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.notify-empty-error {
+  flex-direction: column;
+  color: var(--danger);
+}
+
+.notify-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.notify-foot-btn {
+  width: auto;
+  color: var(--primary);
+  font-size: 12.5px;
+}
+
+/* Notification center page */
+
+.notify-object {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.notify-object .mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-meta [data-notify-meta] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+table.data tbody tr.notify-unread td:first-child {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
 /* ---------- 响应式 ---------- */
 
 @media (max-width: 1240px) {
@@ -2346,6 +2529,11 @@ tr.sub-row td {
 @media (max-width: 760px) {
   .topbar-search {
     display: none;
+  }
+
+  .notify-dropdown {
+    right: -6px;
+    width: calc(100vw - 24px);
   }
 
   .page-header {

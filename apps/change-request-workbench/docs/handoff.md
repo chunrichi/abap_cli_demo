@@ -1,7 +1,7 @@
 # CRW 应用交接文档（Handoff）
 
-> 用途：新会话接手/延续“变更请求工作台（CRW）”应用（M1–M4 已交付，见 §14）。
-> 最后更新：2026-11-01（M4 完成）；基线：`fbe659c`（M1 API）+ Phase 3–7 提交。
+> 用途：新会话接手/延续“变更请求工作台（CRW）”应用（M1–M5 已交付，见 §14）。
+> 最后更新：2026-11-02（M5：站内通知中心 + 提醒报表）；基线：M4 完成于 2026-11-01 + M5 轮次。
 > 工作区：`/Users/lei/Desktop/ai_abap/abap_cli_demo`；应用目录：`apps/change-request-workbench/`。
 
 ---
@@ -10,32 +10,36 @@
 
 ```bash
 cd /Users/lei/Desktop/ai_abap/abap_cli_demo
-git log --oneline -3
+git branch --show-current                 # 期望 feat/crw-notifications（M5 工作分支）
+git log --oneline -5
 git status --short
 cd apps/change-request-workbench
 abap doctor --json
 abap deploy status --json
 abap run ZCL_CRW_SELFCHECK --json
+abap run ZCL_CRW_NOTIFY --json            # 只读通知探测
 abap test ZCL_CRW_UTIL --json
 abap run ZCL_CRW_M1_SMOKE --json          # 写数据，但会自动清理
 ```
 
 期望：
 
-- demo 仓库干净，HEAD 至少包含 `254988e`。
-- `deploy status`：`status=current`、`remoteVersion=2.0.0`、`match=true`。
-- selfcheck：`CRW_SELFCHECK_OK tables=13 rows=… intervals=3 version=1.1.0 messages=8 roles=… approvals=2 icf=OK cts=OK`。
-- 单测：util `passed=4`、workflow `passed=10`、json `passed=8`。
-- smoke：`CRW_M1_SMOKE_OK req=… cd=… task=… sub=…`，执行后仅剩种子数据（`ZCRW_REQ/CD/TASK/HIST` 业务行 0）。
-- 演示数据（截图/联调用）：`abap run ZCL_CRW_DEMO_DATA --json` → `CRW_DEMO_DATA_OK requests=3 cds=1 tasks=2 schedules=1`；复位 `abap run ZCL_CRW_TEST_DATA --json`。
+- 当前分支 `feat/crw-notifications`；`git status` 中不应有 `.abap.json` / 凭证 / 日志等敏感文件（M5 改动由 Lead 统一提交）。
+- `deploy status`：`status=current`、版本与 CLI 匹配（`match=true`）。
+- selfcheck：`CRW_SELFCHECK_OK tables=14 rows=… intervals=3 version=1.2.0 messages=8 roles=… approvals=… notifications=… icf=OK cts=OK`。
+- 通知探测：`abap run ZCL_CRW_NOTIFY --json` → `CRW_NOTIFY_OK rows=… unread=…`（只读统计）。
+- 单测：util `passed=4`、workflow `passed=10`、json `passed=8`、notify `passed=5`（实测 4/4、10/10、8/8、5/5 通过）。
+- smoke：`CRW_M1_SMOKE_OK req=… cd=… task=… sub=…`，执行后仅剩种子数据（`ZCRW_REQ/CD/TASK/HIST/NOTIFY` 业务行 0）。
+- 演示数据（截图/联调用）：`abap run ZCL_CRW_DEMO_DATA --json` → `CRW_DEMO_DATA_OK requests=3 cds=1 tasks=2 schedules=1 notifications=…`；复位 `abap run ZCL_CRW_TEST_DATA --json`。
 
 然后再读（按顺序）：
 
 1. [`AGENTS.md`](../../../AGENTS.md) §2/§4A/§6/§7/§8/§13（仓库合约与写路径）
-2. [`docs/change-request-workbench-plan.md`](../../../docs/change-request-workbench-plan.md)（规划、决策 D1–D10、里程碑）
-3. [`architecture.md`](architecture.md)（类地图、数据模型、API 契约、部署）
-4. [`workflow.md`](workflow.md)（状态机、审批、CTS/计划、审计）
-5. [`README.md`](../README.md)（当前状态、安装与验证命令）
+2. [`docs/change-request-workbench-plan.md`](../../../docs/change-request-workbench-plan.md)（规划、决策 D1–D25、里程碑）
+3. [`architecture.md`](architecture.md)（类地图、数据模型、API 契约、通知模型、部署）
+4. [`workflow.md`](workflow.md)（状态机、审批、CTS/计划、通知、审计）
+5. [`p2-basis.md`](p2-basis.md)（P2 basis 类项设计：包迁移 / 索引 / 归档 / 权限 / Fiori / SMTP-SM36）
+6. [`README.md`](../README.md)（当前状态、安装与验证命令）
 
 技能路由：先 `.agents/skills/abap-cli/SKILL.md`，写 ABAP 前必须读 `.agents/skills/abap-style/SKILL.md`；ICF/MIME 参考 `demos/01-icf-mime-stats/`（handler + MIME + HTTP AFF 的完整参考实现）。
 
@@ -50,16 +54,16 @@ abap run ZCL_CRW_M1_SMOKE --json          # 写数据，但会自动清理
 
 “完成”的验收口径：
 
-- M1–M4 全部走通：标准变更全流程 + 紧急/管理类型的 P1 项。
-- CR/CD/Task 状态机、审批、审计、角色鉴权、乐观锁可被 ABAP Unit 与只读 `select` 验证。
-- CTS 只读集成（D4/D8：实现但不做 live 验证），导入计划可用（D9：只提醒、不执行 TMS）。
-- 六个主页面可用并有脱敏截图；`docs/runbook.md` 可安装/升级。
+- M1–M5 全部走通：标准变更全流程 + 紧急/管理类型的 P1 项 + 站内通知与提醒扫描。
+- CR/CD/Task 状态机、审批、审计、角色鉴权、乐观锁、通知去重可被 ABAP Unit 与只读 `select` 验证。
+- CTS 只读集成（D4/D8：实现但不做 live 验证），导入计划可用（D9：只提醒、不执行 TMS），通知可用（站内即时 + 日报表扫描）。
+- 主页面（含 `#/notifications`）可用并有脱敏截图（M5 新 UI 截图待重拍）；`docs/runbook.md` 可安装/升级。
 - `abap check content` / `validate:aff` / `abap test` / selfcheck / smoke / 只读断言全部通过；连续两次一致。
 - 无业务数据残留、无 URL/凭证/真实数据入库、不碰生产、不 release transport。
 
 ---
 
-## 2. 当前完成度（事实清单，2026-11-01）
+## 2. 当前完成度（事实清单，2026-11-02）
 
 ### 2.1 已完成
 
@@ -67,12 +71,13 @@ abap run ZCL_CRW_M1_SMOKE --json          # 写数据，但会自动清理
 |---|---|---|
 | M0 工具链 | abap-cli 2.0.0（Node 24）、内置 ICF 2.0.0 current、`$CRW` 本地包、`$` 本地包写路径 | `abap deploy status` / create-push-run-delete probe |
 | M0 能力验证 | DDIC TABL、`/ui2/cl_json`、ABAP Unit、CTS 只读（E070/E071/E07T/TMSBUFFER）、ENQU、NROB、MSAG | 见规划附录 B |
-| 数据模型 | 13 张 `ZCRW_*` 表，均 active | `DD02L` count=13 |
+| 数据模型 | 14 张 `ZCRW_*` 表，均 active（M5 新增 `ZCRW_NOTIFY`） | `DD02L` count=14 |
 | 号段 | `ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK`，区间 `01`（1..9999999999） | `NRIV` 3 行 |
 | 消息类 | `ZCRW_MSG`，8 条 | `T100` 8 行 |
 | 锁对象 | `EZCRW_REQ`（主表 `ZCRW_REQ`）、`EZCRW_CD`（主表 `ZCRW_CD`） | `DD25L` 2 行 |
-| 初始化 | `ZCL_CRW_BOOTSTRAP`：号段区间 + version/审批矩阵/ADMIN 角色种子；幂等 | 首跑 `intervals=2 config=3`，再跑 `0/0` |
-| 自检 | `ZCL_CRW_SELFCHECK`：13 表 + 区间 + 版本 + 消息类 + 角色 + 审批矩阵；只读 | `CRW_SELFCHECK_OK …` |
+| 初始化 | `ZCL_CRW_BOOTSTRAP`：号段区间 + version/审批矩阵/ADMIN 角色种子；幂等 | 首跑 `intervals=2 config=3`，再跑 `0/0`；M5 起版本 1.2.0 |
+| 自检 | `ZCL_CRW_SELFCHECK`：14 表 + 区间 + 版本 + 消息类 + 角色 + 审批矩阵 + 通知数；只读 | `CRW_SELFCHECK_OK …` |
+| 通知 | `ZCRW_NOTIFY` + `ZCL_CRW_NOTIFY` / `ZCL_CRW_API_NOTIFY` + 报表 `ZCRW_REMIND_JOB`；顶栏铃铛 + `#/notifications` | `CRW_NOTIFY_OK …`；通知页可见 |
 | 服务层 | `ZCL_CRW_UTIL` / `_NUMBER` / `_AUDIT` / `_REQUEST_SVC` / `_CD_SVC` / `_TASK_SVC` / `ZCX_CRW_ERROR` | 语法/激活通过 |
 | 端到端 | `ZCL_CRW_M1_SMOKE`：CR→CD→Task/SubTask、状态迁移、审计、自动清理 | `CRW_M1_SMOKE_OK …`，残留 0 行 |
 | 单测 | `ZCL_CRW_UTIL` 4 个测试 | `passed=4` |
@@ -82,16 +87,16 @@ abap run ZCL_CRW_M1_SMOKE --json          # 写数据，但会自动清理
 
 ### 2.2 剩余（P2，详见 §14.3）
 
-M1–M4 已于 2026-11-01 全部交付（API/UI/审批/锁/CTS/计划/报表/配置/迁移/截图）。剩余为 P2：可传输包迁移、审批 ALL/改派/补审、ADM 检查清单、配置编辑、索引/归档、通知与后台作业化、报表日期参数、Fiori tile。
+M1–M5 已于 2026-11-02 全部交付（API/UI/审批/锁/CTS/计划/报表/配置/迁移/通知/截图）。剩余为 P2：可传输包迁移（A19 / 工作项 A3）、索引（A20 / D20 / 工作项 D2）、数据归档（A18）、权限对象（A8）、Fiori tile、邮件通道启用（SMTP/SCOT 待 basis）、SM36 每日作业 `ZCRW_REMIND`（待 basis）、审批 ALL/改派/补审、ADM 检查清单、配置编辑、报表日期参数、M5 新 UI 截图重拍。
 
 ### 2.3 仓库/提交
 
 | 仓库 | 状态 |
 |---|---|
-| `abap_cli_demo`（当前） | 干净；HEAD `254988e`；规划/架构/workflow/服务层已提交 |
-| `vibe_with_abap`（CLI） | **有未提交改动**（NROB 空 subType、MSAG ADT→ICF fallback、新单测）；之前提交 `c1367d6` 被外部 `git reset` 丢失；内置 ICF 已 `abap deploy` 到含 NROB 修复的版本 |
+| `abap_cli_demo`（当前） | 工作分支 `feat/crw-notifications`（Lead 创建）；M5 代码 / 文档改动待 Lead 统一提交；仓库已发布到 GitHub（决策与流程见 `docs/github-workflow.md` / `CONTRIBUTING.md`） |
+| `vibe_with_abap`（CLI） | abap-cli 2.0.1；NROB 空 subType、MSAG ADT→ICF fallback 修复已提交（见 `AGENTS.md` §13）；升级后需重新 `abap deploy --yes` |
 
-⚠️ 新会话**不要**在 CLI 仓库执行 `git reset --hard` / `git checkout .`；先 `git -C /Users/lei/Desktop/ai_abap/vibe_with_abap status`，把 5 个文件 + 新测试提交或另存 patch，否则 NROB/MSAG 的修复会丢失（已创建对象不受影响，但新建/推送会回归报错）。
+⚠️ 新会话不要对他人仓库执行 `git reset --hard` / `git checkout .`；先 `git -C /Users/lei/Desktop/ai_abap/vibe_with_abap status` 确认状态，改动只在 CRW 仓库内进行。
 
 ---
 
@@ -102,21 +107,24 @@ M1–M4 已于 2026-11-01 全部交付（API/UI/审批/锁/CTS/计划/报表/配
 | 项 | 值 |
 |---|---|
 | SAP profile | `test`（S/4，systemVersion 789，client 100） |
-| abap-cli | 2.0.0（Node 24 LTS），全局 `abap` 命令 |
-| 内置 ICF | 2.0.0，`deploy status` current |
+| abap-cli | 2.0.1（Node 24 LTS），全局 `abap` 命令 |
+| 内置 ICF | 部署 current（版本与 CLI 匹配） |
 | 应用包 | `$CRW`（本地包，super `$TMP`，DLVUNIT LOCAL，无 transport） |
-| app ICF | 计划 `ZCRW_APP` → `/sap/bc/zcrw`（**尚未创建**） |
-| MIME 根 | 计划 `/zcrw`（**尚未创建**） |
-| 事务码 | 计划 `ZCRW`（类型待定，见 §6） |
+| app ICF | `ZCRW_APP` → `/sap/bc/zcrw`（已创建） |
+| MIME 根 | `/zcrw`（已创建，含 `js/pages/notifications.js`） |
+| 事务码 | `ZCRW`（报表事务 → `ZCRW_START`） |
 | 已知警告 | `SESSION_STORE_FALLBACK` / `SESSION_REUSE_UNSTABLE` 是 CLI 会话存储提示，不影响结果 |
 
-### 3.2 SAP 对象（`$CRW`，TADIR 23 项）
+### 3.2 SAP 对象（`$CRW`，TADIR 113 项（M5 后实测；M5 前基线 108））
 
-- 表（13）：`ZCRW_REQ` / `_CD` / `_TASK` / `_TR` / `_SCHED` / `_APPR` / `_HIST` / `_NOTE` / `_CYCLE` / `_ROLE` / `_APPR_CFG` / `_VERSION` / `_LOG`
-- 类（10）：`ZCL_CRW_UTIL` / `_NUMBER` / `_AUDIT` / `_REQUEST_SVC` / `_CD_SVC` / `_TASK_SVC` / `_BOOTSTRAP` / `_SELFCHECK` / `_M1_SMOKE` / `ZCX_CRW_ERROR`
+- 表（14）：`ZCRW_REQ` / `_CD` / `_TASK` / `_TR` / `_SCHED` / `_APPR` / `_HIST` / `_NOTE` / `_CYCLE` / `_ROLE` / `_APPR_CFG` / `_VERSION` / `_LOG` / `_NOTIFY`
+- 类（M5 后约 38）：`ZCL_CRW_UTIL` / `_NUMBER` / `_AUDIT` / `_AUTH` / `_WORKFLOW` / `_REQUEST_SVC` / `_CD_SVC` / `_TASK_SVC` / `_APPR_SVC` / `_TRANSPORT_SVC` / `_SCHEDULE_SVC` / `_REPORT_SVC` / `_NOTIFY` / `_BOOTSTRAP` / `_MIGRATION` / `_SELFCHECK` / `_M1_SMOKE` / `_TEST_DATA` / `_DEMO_DATA` / `_API_*` / `_HTTP_HANDLER` / `ZCX_CRW_ERROR` 等
+- 程序（2）：`ZCRW_START`（事务码入口）/ `ZCRW_REMIND_JOB`（提醒报表）
 - 号段（3）：`ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK`
 - 消息类：`ZCRW_MSG`
 - 锁对象（2）：`EZCRW_REQ` / `EZCRW_CD`
+- ICF（1）：`ZCRW_APP`；事务码（1）：`ZCRW`；MIME：56 项
+- 迁移基线（包迁移用）：TADIR 113 项（M5 后实测；M5 前基线 108）；接口（1）：`ZIF_CRW_CTS_READER`
 
 ### 3.3 `src/` 文件
 
@@ -126,14 +134,17 @@ apps/change-request-workbench/src/
 ├── ezcrw_req.enqu.json / ezcrw_cd.enqu.json
 ├── zcrw_req/cd/task.nrob.json      # 号段
 ├── zcrw_msg.msag.json              # 消息类
-├── zcrw_<entity>.tabl.{json,ddic,settings.json}   # 13 张表，共 39 文件
-├── zcl_crw_<role>.clas.abap        # 服务/工具/初始化/自检/smoke
-├── zcl_crw_util.clas.testclasses.abap  # ABAP Unit sidecar
-└── zcx_crw_error.clas.abap
+├── zcrw_<entity>.tabl.{json,ddic,settings.json}   # 14 张表（M5 含 zcrw_notify）
+├── zcl_crw_<role>.clas.abap        # 服务/工具/初始化/自检/smoke/通知
+├── zcl_crw_<role>.clas.testclasses.abap  # ABAP Unit sidecar（util / workflow / json / notify）
+├── zcrw_start.prog.abap            # 事务码入口报表
+├── zcrw_remind_job.prog.abap       # 提醒报表（SM36 可调度）
+├── zcrw_app.http.json / zcrw.tran.json
+└── mime/                           # 前端资产（index.html / styles.css / js/）
 ```
 
 - 类文件用**单文件** `.clas.abap`；不要提交 CLI 自动生成的 `.clas.definitions.abap` / `.implementations.abap` / `.macros.abap` / `.clas.json` 等拆分副产物。
-- 前端资产将放 `src/mime/`；截图放 `screenshots/`。
+- 前端资产在 `src/mime/`；截图放 `screenshots/`（M5 新 UI 待重拍）。
 - `tmp/` 已 gitignore；不要提交拉取副产物。
 
 ---
@@ -152,6 +163,10 @@ abap run ZCL_CRW_SELFCHECK --json
 
 # 单元测试
 abap test ZCL_CRW_UTIL --json
+abap test ZCL_CRW_NOTIFY --json
+
+# 通知只读探测
+abap run ZCL_CRW_NOTIFY --json
 
 # 幂等初始化（写：仅首次生效）
 abap run ZCL_CRW_BOOTSTRAP --json
@@ -159,13 +174,17 @@ abap run ZCL_CRW_BOOTSTRAP --json
 # 端到端冒烟（写 + 自动清理）
 abap run ZCL_CRW_M1_SMOKE --json
 
+# 提醒报表（写通知；运维步骤，非只读验证）
+abap run-report ZCRW_REMIND_JOB --json
+
 # 只读断言
 abap select --table DD02L --where "TABNAME LIKE 'ZCRW%'" --count-only --json
+abap select --table ZCRW_NOTIFY --count-only --json
 abap select --table NRIV --where "OBJECT LIKE 'ZCRW%'" --json
 abap select --table T100 --where "ARBGB = 'ZCRW_MSG'" --json
 ```
 
-注意：`ZCL_CRW_SELFCHECK` 必须保持只读；`ZCL_CRW_BOOTSTRAP` / `ZCL_CRW_M1_SMOKE` 会写数据，只能放在“安装与初始化/开发验证”，不要放进只读的“运行与验证”清单。
+注意：`ZCL_CRW_SELFCHECK` / `ZCL_CRW_NOTIFY`（classrun 只统计）必须保持只读；`ZCL_CRW_BOOTSTRAP` / `ZCL_CRW_M1_SMOKE` / `ZCRW_REMIND_JOB` 会写数据，只能放在“安装与初始化/开发验证/运维”，不要放进只读的“运行与验证”清单。
 
 ---
 
@@ -296,6 +315,9 @@ P0 端点（完整 40 个见 architecture §6.2）：
 13. **不碰生产**：只对 `test` profile 写；不提交 `.abap.json`、URL、用户名、真实业务数据；截图脱敏。
 14. **会话警告**：`SESSION_STORE_FALLBACK` / `SESSION_REUSE_UNSTABLE` 不影响命令结果，不必修。
 15. **号段有空洞**：冒烟测试消耗过 REQ 号（NRLEVEL=4），这是正常的；不要手工重置 NRIV。
+16. **通知去重是「一次事件一条」**：`dedup_key = USER_ID + DEDUP_KEY`，已存在（含已读 / 已忽略）**不会重建**；不要为「重新提醒」手工删通知，应由新的业务事件（新 `APPR_ID` / 新 `DUE_DATE`）产生新键。
+17. **通知 / 邮件边界**：站内通知已实现；`deliver_email` 只是预留，SMTP 未配置时**不发信**，不要把它当失败；`SM36` 作业 `ZCRW_REMIND` 本轮未建，由 basis 按 runbook §2.13 配置。
+18. **提醒报表会写数据**：`abap run-report ZCRW_REMIND_JOB` 会生成 `ZCRW_NOTIFY` 记录，不是只读验证命令；只读探测用 `abap run ZCL_CRW_NOTIFY --json`（classrun 只统计）。
 
 ---
 
@@ -337,6 +359,7 @@ P0 端点（完整 40 个见 architecture §6.2）：
 | 规划/决策 | [`docs/change-request-workbench-plan.md`](../../../docs/change-request-workbench-plan.md) |
 | 架构/API 契约 | [`apps/change-request-workbench/docs/architecture.md`](architecture.md) |
 | 状态机/审批/CTS 契约 | [`apps/change-request-workbench/docs/workflow.md`](workflow.md) |
+| P2 basis 类项设计 | [`apps/change-request-workbench/docs/p2-basis.md`](p2-basis.md) |
 | 应用 README | [`apps/change-request-workbench/README.md`](../README.md) |
 | ICF/MIME 参考实现 | [`demos/01-icf-mime-stats/`](../../../demos/01-icf-mime-stats/) |
 | ABAP 风格 | [`.agents/skills/abap-style/SKILL.md`](../../../.agents/skills/abap-style/SKILL.md) |
@@ -362,7 +385,7 @@ P0 端点（完整 40 个见 architecture §6.2）：
 
 ---
 
-## 14. M1–M4 完成记录（2026-11-01）
+## 14. M1–M5 完成记录（M1–M4：2026-11-01；M5：2026-11-02）
 
 ### 14.1 交付
 
@@ -370,28 +393,57 @@ P0 端点（完整 40 个见 architecture §6.2）：
 - **M2**：`ZCL_CRW_WORKFLOW`（纯逻辑，单测 10）；CR/CD/Task 动作与守卫；两级审批（矩阵、ANY、驳回填意见、自审拦截、SKIP）；ENQUEUE 锁；历史/备注 API；我的工作/审批中心/看板；乐观锁与 409。
 - **M3**：`ZIF_CRW_CTS_READER` + `ZCL_CRW_CTS_ADAPTER`（E070/E071/E07T/TMSBUFFER 只读 + 降级）；传输关联/解绑/标记/同步；导入计划改期/取消/确认/逾期；CD 计划快照；传输工作台与计划页面。
 - **M4**：报表（分布/趋势、时长、逾期、ToC、CSV）；配置只读页面；`ZCL_CRW_MIGRATION`；runbook；脱敏截图；`ZCL_CRW_DEMO_DATA`。
-- **验证**：selfcheck（含 `icf=OK cts=OK`）、`abap test`（util 4 / workflow 10 / json 8）、真实 HTTP 实测 200/201/400/403/404/409/502、SPA 页面渲染截图、CSV 下载。
-- **提交**：`c3a8d19`（Phase 1 冻结）、`fbe659c`（Phase 2 API），Phase 3–7 见 `git log`。
+- **M5（P2 通知与提醒）**：`ZCRW_NOTIFY` + `ZCL_CRW_NOTIFY` / `ZCL_CRW_API_NOTIFY`（通知服务 / API / DTO）；审批事件钩子（生成 / 驳回）；顶栏铃铛 + `#/notifications` 页面；`ZCRW_REMIND_JOB` 提醒报表（SM36 可调度）；`ZCL_CRW_SELFCHECK` 升到 14 表并输出 `notifications=`；bootstrap / migration 版本 1.2.0；`deliver_email` 邮件通道预留。
+- **验证（M5 实测）**：selfcheck `tables=14 rows=7 intervals=3 version=1.2.0 messages=8 roles=1 approvals=2 notifications=0 icf=OK cts=OK`（复位后）；`abap test ZCL_CRW_NOTIFY` 5/5；`abap run ZCL_CRW_NOTIFY` → `CRW_NOTIFY_OK rows=0 unread=0`（复位后；演示数据后 rows=2 unread=2）；`abap run-report ZCRW_REMIND_JOB` → `ZCRW_REMIND_JOB_OK approvals=0 tasks=0 schedules=0 total=0`（演示数据刷新后运行，去重生效）；通知 API 控制器探针（列表/未读数/刷新/已读/全部已读）返回契约 JSON；浏览器页面与 HTTP 端到端待人工复核。
+- **提交**：`c3a8d19`（Phase 1 冻结）、`fbe659c`（Phase 2 API），Phase 3–7 见 `git log`；M5 提交见本轮 `feat/crw-notifications`。
 
 ### 14.2 实测口径与坑
 
 - ICF：节点创建后需再 `abap activate ZCL_CRW_HTTP_HANDLER`，否则 500 `Class interface changed at runtime`；无尾斜杠 `/sap/bc/zcrw` 已 302 到带斜杠地址。
-- MIME：`abap mime push <dir>` 会把目录内容**扁平**上传到 `--root`；必须按层级分别 push（runbook S9），且偶发单文件未落地时按文件重推。
+- MIME：`abap mime push <dir>` 会把目录内容**扁平**上传到 `--root`；必须按层级分别 push（runbook S9），且偶发单文件未落地时按文件重推。M5 新增 `js/pages/notifications.js` 与样式，按页分别重推后验证 200。
 - 未登录：`/api/v1/*` 由 ICF 标准登录过程接管，返回 401 + 登录页（非 JSON）；D21 实测结论。
 - ENQU：AFF 的 `lockParameters[].active` 必须显式为 `true`，否则生成的 `ENQUEUE_*` 只有 `MODE_*` 参数（已修正并重推）。
 - ABAP 类缓存：`abap push` 后 `abap run` 可能仍执行旧版本，`abap session reset` 后重跑可刷新（HTTP 侧同理，必要时重激活 handler）。
 - `ZCRW_HIST.OBJECT_ID` 为 CHAR20，放不下 32 字符的计划 UUID：动态/历史按前缀回查（已实现）。
-- `abap-cli` 在 HOME 不可写时会回退 workspace session store；为稳定写路径本会话使用了临时 HOME + fixture keychain + derived session key（`tmp/abapx`，gitignored，不属交付物）。
+- `abap-cli` 在 HOME 不可写时会回退 workspace session store；为稳定写路径本会话使用了临时 HOME + fixture keychain + derived session key（`tmp/abapx` 属历史做法，gitignored，不属交付物）。
+- **M5 通知**：`dedup_key` 去重为「一次事件一条」（已读 / 已忽略不重建）；`deliver_email` 是预留空实现，SMTP 未配置不发信；提醒报表会写 `ZCRW_NOTIFY`（属运维步骤）；M5 新 UI 截图待人工重拍。
 
-### 14.3 P2 待办
+### 14.3 P2 待办（M5 后）
 
-可传输包迁移（A19）；审批 ALL 规则、改派、事后补审；ADM 检查清单（W28）；配置页面编辑；索引（A20）；数据归档（A18）；通知与后台作业化提醒；报表日期范围；Fiori tile / 启动板。
+可传输包迁移（A19 / 工作项 A3，暂不做）；二级索引（A20 / D20 / 工作项 D2，后置）；数据归档（A18，只设计）；权限对象（A8，只设计）；Fiori tile / FLP（D22，不采用，可选 URL tile）；邮件通道启用（SMTP/SCOT 待 basis）；SM36 每日作业 `ZCRW_REMIND`（待 basis）；审批 ALL 规则、改派、事后补审；ADM 检查清单（W28）；配置页面编辑；报表日期范围；M5 新 UI 截图重拍。以上设计见 [`p2-basis.md`](p2-basis.md)。
 
 ### 14.4 下个会话启动（P2）
 
 同 §0，另加：
 
-1. `git log --oneline -10` 了解 M1–M4 提交；读 `README.md` 当前状态与 `docs/runbook.md` §10。
-2. `abap run ZCL_CRW_SELFCHECK --json` 应输出 `icf=OK cts=OK`；`abap tcode ZCRW --json` 应解析到 `ZCRW_START`。
-3. 若环境需干净数据：`abap run ZCL_CRW_TEST_DATA --json`（写数据，属开发步骤）。
-4. P2 涉及包迁移 / 权限对象 / basis 配置，先与用户确认环境与范围。
+1. `git log --oneline -10` 了解 M1–M5 提交；读 `README.md` 当前状态与 `docs/runbook.md` §10。
+2. `abap run ZCL_CRW_SELFCHECK --json` 应输出 `tables=14 version=1.2.0 icf=OK cts=OK`；`abap run ZCL_CRW_NOTIFY --json` 应输出 `CRW_NOTIFY_OK`；`abap tcode ZCRW --json` 应解析到 `ZCRW_START`。
+3. 若环境需干净数据：`abap run ZCL_CRW_TEST_DATA --json`（写数据，属开发步骤；会清 `ZCRW_NOTIFY`）。
+4. P2 涉及包迁移 / 权限对象 / 归档 / SMTP / SM36 等 basis 配置，先与用户确认环境与范围，按 [`p2-basis.md`](p2-basis.md) 的 owner / 前置 / 验收执行。
+
+### 14.5 M5 完成记录（2026-11-02，P2 通知与提醒）
+
+**交付清单**
+
+| 类别 | 内容 |
+|---|---|
+| DDIC | `ZCRW_NOTIFY`（14 表，版本 1.2.0；`notify_id` CHAR32 主键、`dedup_key` CHAR80 等） |
+| 服务 | `ZCL_CRW_NOTIFY`：`emit`（发布通知，dedup）/ `refresh_for_user` / `run_scan` / `list_for_user` / `unread_count` / `mark_read` / `mark_all_read`；事件钩子 `notify_approval_pending` / `notify_approval_rejected`；邮件预留 `deliver_email`；classrun 只读探测 `CRW_NOTIFY_OK rows=… unread=…`；单测 5 例 |
+| API | `ZCL_CRW_API_NOTIFY`：`GET /notifications`、`GET /notifications/unread-count`、`POST /notifications/refresh`、`POST /notifications/{id}/read`、`POST /notifications/read-all`（写保护 `X-CRW-Request: 1`） |
+| 集成 | `ZCL_CRW_APPR_SVC` 生成步骤 / 驳回时建通知；`ZCL_CRW_API_MAP` / `_API_TYPES` / `_API_ROUTER` 接入；`ZCL_CRW_DEMO_DATA` 含通知种子；`ZCL_CRW_TEST_DATA` 清 `ZCRW_NOTIFY`；`ZCL_CRW_SELFCHECK` 覆盖 14 表 + `notifications=` |
+| 报表 | `ZCRW_REMIND_JOB`：扫描待审批 / 逾期任务 / 逾期计划 → 通知；输出 `ZCRW_REMIND_JOB_OK …` / `ZCRW_REMIND_JOB_FAIL …`；SM36 作业由 basis 配置（本轮不建） |
+| 前端 | 顶栏通知铃铛（未读徽标 + 下拉最近 5 条未读 + 全部已读 / 查看全部）；`#/notifications` 页面（状态 / 类型筛选、分页、刷新、全部已读、单条标记已读）；60s 未读数轮询；启动刷新 |
+| 文档 | `p2-basis.md`（新建）、architecture / workflow / runbook / README / 本文件 / 规划同步：14 表、1.2.0、通知 API 与去重语义、SM36 步骤、P2 basis 决策 |
+
+**验证口径（2026-11-02 实测）**
+
+| 项 | 命令 | 期望 / 实测 |
+|---|---|---|
+| 自检 | `abap run ZCL_CRW_SELFCHECK --json` | `CRW_SELFCHECK_OK tables=14 rows=7 intervals=3 version=1.2.0 messages=8 roles=1 approvals=2 notifications=0 icf=OK cts=OK`（实测，复位后） |
+| 单测 | `abap test ZCL_CRW_NOTIFY --json` | 5/5 通过（实测） |
+| 通知探测 | `abap run ZCL_CRW_NOTIFY --json` | `CRW_NOTIFY_OK rows=0 unread=0`（实测，复位后；演示数据后 rows=2 unread=2） |
+| 提醒报表 | `abap run-report ZCRW_REMIND_JOB --json` | `ZCRW_REMIND_JOB_OK approvals=0 tasks=0 schedules=0 total=0`（实测；演示数据刷新后运行，去重生效） |
+| HTTP | `GET /notifications`、`/notifications/unread-count` 等 | 200 + 契约 JSON（API 控制器层实测通过；浏览器 HTTP 待人工复核） |
+| UI | `#/notifications` + 顶栏铃铛 | 页面可见、标记已读生效（人工验证；截图待重拍） |
+
+**未完成 / 边界**：SMTP 未配置（邮件不发）；SM36 作业定义未建（basis）；`DISMISSED` 枚举预留、无忽略端点；包迁移 / 索引 / 归档 / 权限对象 / Fiori 只出设计（[`p2-basis.md`](p2-basis.md)）；M5 新 UI 截图待人工重拍。

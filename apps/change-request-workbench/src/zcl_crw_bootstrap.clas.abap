@@ -13,8 +13,8 @@ CLASS zcl_crw_bootstrap DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PRIVATE SECTION.
     CONSTANTS: gc_component     TYPE zcrw_version-component VALUE 'CRW',
-               gc_version       TYPE zcrw_version-version_no VALUE '1.1.0',
-               gc_notes         TYPE zcrw_version-notes VALUE 'M1 API bootstrap',
+               gc_version       TYPE zcrw_version-version_no VALUE '1.2.0',
+               gc_notes         TYPE zcrw_version-notes VALUE 'M5 P2 notification center',
                gc_profile_req   TYPE zcrw_appr_cfg-profile_id VALUE 'STD_DEFAULT',
                gc_profile_cd    TYPE zcrw_appr_cfg-profile_id VALUE 'CD_DEFAULT',
                gc_step          TYPE zcrw_appr_cfg-step_no VALUE '01',

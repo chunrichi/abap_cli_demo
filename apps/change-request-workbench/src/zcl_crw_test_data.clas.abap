@@ -28,6 +28,8 @@ CLASS zcl_crw_test_data IMPLEMENTATION.
     rv_deleted = rv_deleted + sy-dbcnt.
     DELETE FROM zcrw_note.
     rv_deleted = rv_deleted + sy-dbcnt.
+    DELETE FROM zcrw_notify.
+    rv_deleted = rv_deleted + sy-dbcnt.
     DELETE FROM zcrw_log.
     rv_deleted = rv_deleted + sy-dbcnt.
     COMMIT WORK AND WAIT.

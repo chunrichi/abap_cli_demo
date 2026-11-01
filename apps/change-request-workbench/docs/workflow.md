@@ -4,7 +4,8 @@
 > 事实源：[CRW 规划](../../../docs/change-request-workbench-plan.md)（下称「规划」）§4.5 / §5 / §7.4 / §8.4；冲突时以规划为准。
 > 配套文档：[architecture.md](architecture.md)（分层、数据模型、API 契约、部署、安全）、[runbook.md](runbook.md)（运维，v1 骨架）。
 > 文档约定：状态码 / 动作码 / 错误码为 ASCII 大写；字段名与 DDIC 一致；**待定** 表示规划未定义、需在对应里程碑前决策。
-> v1 冻结（2026-11-01）：§12 的 W1–W30 已全部裁决；正文中标注“待定”的表述按 §12 “v1 决议”列执行。
+> v1 冻结（2026-11-01）：§13 的 W1–W30 已全部裁决；正文中标注“待定”的表述按 §13 “v1 决议”列执行。
+> v1.2.0 增补（2026-11-02，M5）：新增 §9「通知」——站内通知中心、提醒扫描与邮件通道边界；状态机、审批、CTS、计划语义不变。
 
 ---
 
@@ -48,7 +49,7 @@ Transport（DEV / ToC，只读快照）：
 - 状态只能通过动作改变，**不接受** UI / API 直接写 `STATUS` 字段。
 - 动作统一走 `POST /api/v1/{resource}/{id}/actions`，请求体至少含 `action` 与 `version`，可选 `comment` 及动作专属参数（如 `plannedImportAt`）；审批决策走 `POST /api/v1/approvals/{id}/decision`。
 - 服务端处理顺序：**校验版本 → 取锁 → 校验当前状态 → 校验角色与数据范围 → 校验守卫 → 执行迁移 → 写副作用（历史 / 审批 / 计划）→ `version` +1 → `COMMIT` → 返回变更后对象摘要**。
-- 失败返回统一错误信封：非法状态 `INVALID_TRANSITION`、守卫不满足 `GUARD_FAILED`、越权 `FORBIDDEN` / `APPROVER_MISMATCH` / `SELF_APPROVAL`、版本冲突 `CONCURRENT_MODIFICATION`（见 §10）。
+- 失败返回统一错误信封：非法状态 `INVALID_TRANSITION`、守卫不满足 `GUARD_FAILED`、越权 `FORBIDDEN` / `APPROVER_MISMATCH` / `SELF_APPROVAL`、版本冲突 `CONCURRENT_MODIFICATION`（见 §11）。
 - 动作幂等：重复提交且状态已变化 → `INVALID_TRANSITION`，不产生重复历史 / 审批记录。
 
 ### 1.3 核心不变量
@@ -65,6 +66,7 @@ Transport（DEV / ToC，只读快照）：
 | I8 | 服务端按角色鉴权；前端隐藏按钮只是体验，不是安全边界 |
 | I9 | 审批意见、驳回原因、取消原因必填；备注可为空 |
 | I10 | 历史表只追加，不提供删除入口；审计导出只读 |
+| I11 | 通知只读展示、不驱动状态机；通知生成 / 邮件发送失败不阻塞业务动作与审批（见 §9） |
 
 ### 1.4 对象与字段映射
 
@@ -76,6 +78,7 @@ Transport（DEV / ToC，只读快照）：
 | 审批步骤 | `ZCRW_APPR` | `APPR_STATE` CHAR10 | 无（随对象版本） | 随对象锁 |
 | 传输关联 | `ZCRW_TR` | `TR_STATUS` CHAR1（E070 快照）、`SYNC_STATE` CHAR10 | 无 | 随 CD 锁 |
 | 导入计划 | `ZCRW_SCHED` | `STATUS` CHAR10 | 无 | 随 CD / 计划动作加锁 |
+| 站内通知 | `ZCRW_NOTIFY` | `STATUS` CHAR10（UNREAD / READ / DISMISSED） | 无（个人通知无乐观锁） | 无 |
 | 审计 | `ZCRW_HIST` | —（只追加） | — | 无 |
 
 ---
@@ -460,7 +463,7 @@ IMPORTED ──CLOSE──▶ CLOSED
 ### 8.4 到点 / 逾期计算与提醒
 
 - `MISSED` 在读取时计算，不依赖后台作业；判定基准为「计划时间 < 当前系统时间且未确认导入」。
-- 提醒出口：首页 KPI（逾期数）、我的工作（待导入 / 逾期）、导入日程视图；不发送邮件 / 站内消息（P1/P2 再评估）。
+- 提醒出口：首页 KPI（逾期数）、我的工作（待导入 / 逾期）、导入日程视图，以及站内通知（§9；计划逾期通知发 `CHANGE_MANAGER` / `ADMIN`）；邮件 P2 预留（§9.6）。
 - 时区基准（系统时区 / 用户时区）**待定**（W22），与 `architecture.md` §5.6 同源问题。
 
 ### 8.5 冲突、改期与取消
@@ -481,15 +484,97 @@ IMPORTED ──CLOSE──▶ CLOSED
 ### 8.7 明确不做
 
 - 不执行 TMS 导入、不排队、不触发 STMS。
-- 不建后台作业（abap-cli 不支持 SM36）。
-- 不做自动通知（邮件 / IM / 站内消息推送）。
+- 不建后台作业定义（应用提供 `ZCRW_REMIND_JOB` 可调度报表，SM36 作业由 basis 配置，见 §9.5）。
+- 不做 IM / 邮件推送（站内通知见 §9；邮件 P2 预留）。
 - 不做跨系统、跨 client 的发布编排。
 
 ---
 
-## 9. 审计与历史不变量
+## 9. 通知（P2 站内通知中心）
 
-### 9.1 记录范围
+> 本轮已交付站内通知（表 `ZCRW_NOTIFY`、服务 `ZCL_CRW_NOTIFY`、API `/notifications*`、顶栏铃铛 + `#/notifications` 页面、报表 `ZCRW_REMIND_JOB`）；邮件通道仅预留。通知不是审批、不是审计，也不改变任何对象状态。
+
+### 9.1 边界与原则
+
+- 通知是**个人消息**：每条归属一个 `USER_ID`，读写只作用于本人数据；服务端生成，UI 只能「标记已读 / 全部已读」，不能直写 `STATUS`。
+- 通知**不驱动状态机**：审批、任务、计划的状态迁移仍只由动作 / 守卫 / 扫描计算决定；通知只是同一事件的展示。
+- 通知生成失败**不阻塞业务**：审批步骤生成 / 驳回 / 扫描中的通知异常被吞掉，业务事务继续（不变量 I11）。
+- 通知不等于审计：历史 / 审计记录在 `ZCRW_HIST`（§10），通知可被用户标记已读、后续可清理 / 归档。
+- 不做 IM / Teams / 短信推送；邮件在 P2 预留（§9.6）。
+
+### 9.2 事件、接收人与跳转
+
+| 触发事件 | `NOTIFY_TYPE` | 接收人 | `SEVERITY` | `LINK_PAGE` | 来源 |
+|---|---|---|---|---|---|
+| CR `SUBMIT` / CD `SUBMIT_APPROVAL` 生成审批步骤 | `APPROVAL_PENDING` | 当前步骤审批人 | `INFO` | `#/approvals` | `EVENT` |
+| 审批驳回（CR / CD） | `APPROVAL_REJECTED` | 请求人（请求人不会审批自己） | `WARN` | 请求 → `#/requests/{id}`；CD → `#/change-documents/{id}` | `EVENT` |
+| 用户主动刷新（`POST /notifications/refresh`） | `APPROVAL_PENDING` / `TASK_OVERDUE` / `SCHED_OVERDUE` | 当前用户；计划逾期仅 `CHANGE_MANAGER` / `ADMIN` | `INFO` / `WARN` | 同上 / `#/tasks` / `#/schedule` | `SCAN` |
+| 每日报表 `ZCRW_REMIND_JOB` | 同上 | 待审批 → 审批人；逾期任务 → 指派人；逾期计划 → `CHANGE_MANAGER` + `ADMIN` | 同上 | 同上 | `SCAN` |
+| 演示数据（仅开发 / 截图） | `INFO` | 当前用户 | `INFO` | `#/notifications` | `API` |
+
+- 与审批的对应：步骤生成 / 驳回是事件驱动（即时），其余靠扫描补齐；审批状态本身仍以 `ZCRW_APPR` 为准。
+- 与任务 / 计划的对应：逾期任务（`DUE_DATE < 今天` 且非 `DONE` / `CANCELLED`）、逾期计划（`STATUS = PLANNED` 且 `SCHEDULED_AT < 当前时间`）由扫描生成提醒；**扫描只提醒，不改任务 / 计划状态**，`MISSED` 仍在读取时计算（§8.4）。
+- 严重度：审批待办用 `INFO`，驳回与逾期用 `WARN`；`CRITICAL` 枚举预留，当前生成方未使用。
+- 对象展示：`OBJECT_TYPE` + `OBJECT_ID` 指向来源对象；列表同时返回 `objectDisplayId`（`CR-…` / `CD-…` / `T-…` / `ST-…`），`LINK_PAGE` 只允许站内 hash。
+
+### 9.3 去重与幂等
+
+- 幂等键 = `USER_ID + DEDUP_KEY`；创建前先查，命中则返回已有通知且 `created=false`，**不重复生成**（含已读 / 已忽略的通知也不会重建）。
+- 典型 `DEDUP_KEY`：审批 `APPR:{APPR_ID}`；驳回 `REJ:{OBJECT_TYPE}:{OBJECT_ID}:{APPR_ID}`；任务逾期 `TASK_OVERDUE:{TASK_ID}:{DUE_DATE}`；计划逾期 `SCHED_OVERDUE:{SCHED_ID}:{SCHEDULED_AT}`。
+- 键中带日期 / 计划时间，使「同一对象的新一轮逾期」可以再次提醒；`DEDUP_KEY` 超过 80 字符截断。
+- 因此 `refresh` 与 `ZCRW_REMIND_JOB` 可重复执行；同一业务事件不会产生多条通知。
+- 扫描单类最多取 500 行（`gc_max_scan_rows`），避免一次请求 / 作业扫全表。
+
+### 9.4 已读 / 未读语义
+
+| 状态 | 含义 | 进入方式 |
+|---|---|---|
+| `UNREAD` | 未读（默认） | 新通知写入 |
+| `READ` | 已读 | `POST /notifications/{id}/read`（仅本人、仅 `UNREAD → READ`，写 `READ_AT`）或 `POST /notifications/read-all` |
+| `DISMISSED` | 已忽略 | 枚举预留；本期无 dismiss 端点，仅会在列表中按状态展示 |
+
+- `unread_count` 只统计本人 `UNREAD`；标记已读是幂等的：已读行不再更新，返回更新 0 条。
+- 「全部已读」返回 `{updated, unread}`，`updated` 为本次实际更新条数。
+- `{id}` 不存在或不属于当前用户 → `NOT_FOUND`（不泄露其他用户的通知是否存在）。
+- 已读不删除通知；保留与清理 / 归档见 §9.7。
+
+### 9.5 刷新时机与后台作业
+
+| 时机 | 行为 | 说明 |
+|---|---|---|
+| 应用启动 | `POST /notifications/refresh` 一次 | 失败只提示一次中文 toast，不阻塞主流程 |
+| 打开顶栏铃铛 | 先 refresh，再取最近 5 条 `UNREAD` | 下拉面板展示类型 / 标题 / 消息 / 相对时间 |
+| 打开 `#/notifications` 页面 | 列表 + `unread-count`；手动「刷新」按钮可再触发扫描 | 筛选（状态 / 类型）+ 服务端分页 |
+| 页面动作后 | 顶栏 / 侧栏未读徽标刷新（事件广播） | 标记已读、全部已读返回 `unread` |
+| 每 60 秒 | `GET /notifications/unread-count`（只读） | 仅轮询未读数，不触发扫描 |
+| 每日（SM36） | `ZCRW_REMIND_JOB` → `run_scan` | 作业本轮不建；由 basis 按 runbook §2.13 配置（建议 07:00，job 名 `ZCRW_REMIND`） |
+
+- 作业报表输出：成功 `ZCRW_REMIND_JOB_OK approvals={n} tasks={n} schedules={n} total={n}`，失败 `ZCRW_REMIND_JOB_FAIL <code> <text>`；不配 SMTP 时**不发邮件**，只生成站内通知。
+- 本轮不创建 SM36 作业定义、不配置 SCOT；启用后通知与作业的验收口径见 [p2-basis.md](p2-basis.md) §7、[runbook.md](runbook.md) §2.13。
+
+### 9.6 邮件通道 P2（SMTP / SCOT 边界）
+
+- `ZCL_CRW_NOTIFY=>deliver_email` 是预留方法，在通知成功落库后调用；**SMTP 未配置时返回未发送，不发信**，也不影响站内通知（任务 / 审批照常推进）。
+- 邮件启用前提：basis 在 `SCOT` 配好 SMTP；用户 `SU01` 有邮箱；出站策略放行。启用步骤与验收见 [p2-basis.md](p2-basis.md) §7.1。
+- 发送策略：先落库站内通知，再尝试邮件；发送失败只记录，不回滚业务、不重复生成通知（去重兜底）。邮件内容不得带系统地址 / 凭证等敏感信息。
+- 本轮**只预留、不实现发送**；邮件通道不是通知可用的前置条件。
+
+### 9.7 数据量与清理
+
+- 通知量级 = 事件数 × 接收人；单用户列表默认 20 条 / 页、上限 100，按 `CREATED_AT DESC` 排序，不做全表扫描。
+- 通知按年增长；`ZCRW_TEST_DATA` 复位会清空 `ZCRW_NOTIFY`；归档 / 清理设计**只出文档**（[p2-basis.md](p2-basis.md) §4），本轮不删除线上通知。
+
+### 9.8 明确不做
+
+- 不做 IM / Teams / 短信；不做邮件模板设计器；不做通知订阅 / 免打扰配置（P2 以后评估）。
+- 不做通知驱动状态机或自动审批；`DISMISSED` 只预留枚举，本期无忽略端点。
+- 不在通知里放系统地址、凭证或真实业务数据；不做跨用户 / 跨 client 广播。
+
+---
+
+## 10. 审计与历史不变量
+
+### 10.1 记录范围
 
 以下动作必须写 `ZCRW_HIST`：
 
@@ -504,7 +589,7 @@ IMPORTED ──CLOSE──▶ CLOSED
 | 配置变更 | bootstrap / 迁移 / 管理界面改矩阵与角色 | `CONFIG` |
 | 取消与驳回 | 含原因 | 各对象 |
 
-### 9.2 字段与来源
+### 10.2 字段与来源
 
 | 字段 | 约定 |
 |---|---|
@@ -516,7 +601,7 @@ IMPORTED ──CLOSE──▶ CLOSED
 | `CHANGED_BY` / `CHANGED_AT` | 操作人（`SY-UNAME`）与时间（`CHAR14`） |
 | `SOURCE` | `UI` / `API` / `SYNC` |
 
-### 9.3 写入不变量
+### 10.3 写入不变量
 
 1. **一次状态变更一条历史**：动作成功即写一条；失败不写。
 2. **同一 LUW**：业务写与历史写在同一事务内提交，禁止「状态变了但没历史」。
@@ -525,7 +610,7 @@ IMPORTED ──CLOSE──▶ CLOSED
 5. **无敏感数据**：不记录凭证、系统地址、真实业务数据；长文本按 255 截断（截断规则**待定** W26）。
 6. **审计导出只读**：按请求 / 时间 / 操作人过滤，CSV 下载（P1）。
 
-### 9.4 与审批 / 日志的分工
+### 10.4 与审批 / 日志的分工
 
 | 数据 | 用途 | 生命周期 |
 |---|---|---|
@@ -537,16 +622,16 @@ IMPORTED ──CLOSE──▶ CLOSED
 - 历史不等于审批记录：审批状态以 `ZCRW_APPR` 为准，历史提供完整追溯链。
 - 历史不等于日志：日志面向排障，历史面向业务审计。
 
-### 9.5 合规边界
+### 10.5 合规边界
 
 - 应用级审计**不是**合规级不可篡改：管理员仍可直接改表；runbook 必须写明该边界。
 - 审计导出只读，不提供编辑；导出文件名过滤用户输入（防注入 / 路径穿越）。
 
 ---
 
-## 10. 错误语义
+## 11. 错误语义
 
-### 10.1 错误信封
+### 11.1 错误信封
 
 ```json
 {
@@ -562,7 +647,7 @@ IMPORTED ──CLOSE──▶ CLOSED
 - `correlationId` 与 `ZCRW_LOG.CORRELATION_ID` 一致，前端展示便于排障。
 - HTTP 状态总则：400 参数 / 校验、401 未登录、403 无权限、404 不存在、409 冲突 / 非法迁移、500 内部错误、502 CTS 读取失败。
 
-### 10.2 流程相关错误码
+### 11.2 流程相关错误码
 
 | code | HTTP | 流程含义 | 典型场景 |
 |---|---|---|---|
@@ -587,20 +672,20 @@ IMPORTED ──CLOSE──▶ CLOSED
 - `GUARD_FAILED` = 「状态允许，但前置条件没满足」（守卫层判定），`details.missing` 列出缺失守卫项。
 - `VALIDATION_ERROR` = 「请求本身不合法」，前端应做字段级内联提示。
 
-### 10.3 幂等与并发
+### 11.3 幂等与并发
 
 - 写请求带 `version`；不匹配 → `CONCURRENT_MODIFICATION`，前端提示「记录已被他人修改」并刷新，不静默覆盖。
 - 关键动作加 `EZCRW_REQ` / `EZCRW_CD` 锁；锁等待超时 → `OBJECT_LOCKED`。
 - 动作重复提交且状态已变化 → `INVALID_TRANSITION`，不写重复历史 / 审批步骤。
 - 一个写请求一个 LUW：任一校验失败整体回滚，不产生部分写入。
 
-### 10.4 降级
+### 11.4 降级
 
 - CTS 读取失败：返回业务数据 + 「未知」状态 + `SYNC_STATE = ERROR`，写日志；不阻塞 CR / CD / 任务流程。
 - 号段不可用：阻塞创建类动作（`NUMBER_RANGE_ERROR`），提示管理员执行 bootstrap / 检查 `NRIV`。
 - 配置缺失（无审批矩阵 / 无管理员角色）：selfcheck 报 `CRW_SELFCHECK_FAIL`；运行时拒绝需审批的动作并提示执行 bootstrap。
 
-### 10.5 前端处理约定
+### 11.5 前端处理约定
 
 | HTTP / code | 前端行为 |
 |---|---|
@@ -613,7 +698,7 @@ IMPORTED ──CLOSE──▶ CLOSED
 | 502 `CTS_READ_ERROR` | 展示「状态未知，请到 STMS 确认」，不阻塞其它操作 |
 | 500 | 通用错误 + 展示 `correlationId`，允许重试 |
 
-### 10.6 消息类映射
+### 11.6 消息类映射
 
 `ZCRW_MSG` 8 条消息与 API 错误码的对应（`message` 取消息文本）：
 
@@ -632,9 +717,9 @@ IMPORTED ──CLOSE──▶ CLOSED
 
 ---
 
-## 11. 端到端流程
+## 12. 端到端流程
 
-### 11.1 标准变更（STD）
+### 12.1 标准变更（STD）
 
 | # | 角色 | 动作 | 状态变化 | 审计 / 副作用 |
 |---|---|---|---|---|
@@ -656,7 +741,7 @@ IMPORTED ──CLOSE──▶ CLOSED
 | 16 | 变更经理 | CD `CLOSE` | `IMPORTED → CLOSED` | 守卫：任务全关闭；历史 |
 | 17 | 变更经理 | CR `CLOSE` | `IN_PROGRESS → CLOSED` | 守卫：所有 CD 关闭 / 取消；历史 |
 
-### 11.2 紧急变更（URG，P1）
+### 12.2 紧急变更（URG，P1）
 
 1. CR 标记 `URG`，可跳过事前审批（规划口径，具体跳过方式**待定** W20）。
 2. 直接建 CD，走 ToC：`POST /transports/link` 且 `trKind = TOC`。
@@ -665,7 +750,7 @@ IMPORTED ──CLOSE──▶ CLOSED
 5. 生产导入后必须补审批与复盘记录；`RETROFIT_STATE` 标记（P1）。
 6. 逾期未补审进入「待补审」报表（P1）。
 
-### 11.3 管理变更（ADM，P2）
+### 12.3 管理变更（ADM，P2）
 
 1. CR 标记 `ADM`，不产生 transport。
 2. 用检查清单代替传输关联；清单模型规划未定义（**待定** W28）。
@@ -673,7 +758,7 @@ IMPORTED ──CLOSE──▶ CLOSED
 
 ---
 
-## 12. 待定问题与 v1 决议（W1–W30，已冻结）
+## 13. 待定问题与 v1 决议（W1–W30，已冻结）
 
 | 编号 | 问题 | v1 决议（已冻结） | 实施里程碑 |
 |---|---|---|---|
@@ -710,9 +795,10 @@ IMPORTED ──CLOSE──▶ CLOSED
 
 ---
 
-## 13. 参考
+## 14. 参考
 
 - [CRW 规划](../../../docs/change-request-workbench-plan.md)：§4.5 关键不变量、§5 流程与状态机、§7.4 事务与并发、§8.4 错误码。
 - [architecture.md](architecture.md)：数据模型、API 契约、部署、安全、版本与升级。
+- [p2-basis.md](p2-basis.md)：P2 basis 类项（包迁移 / 索引 / 归档 / 权限对象 / Fiori）与 SMTP / SM36 前置。
 - [README](../README.md)：当前状态与验证命令。
 - [`AGENTS.md`](../../../AGENTS.md) §4A：应用单元契约。
