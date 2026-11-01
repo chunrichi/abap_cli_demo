@@ -238,7 +238,7 @@ CTS Adapter（只读）── E070 / E071 / E07T / TMS 队列
 | `ZCL_CRW_API_MAP` | CLAS | DTO 映射 | 新增 `notification( )`（DDIC → §6.7 通知 DTO） | 已实现 |
 | `ZCL_CRW_API_TYPES` | CLAS | DTO 类型 | 新增 `ty_notification` / `tt_notifications` | 已实现 |
 | `ZCRW_REMIND_JOB` | PROG | 提醒报表（SM36 可调度） | 调用 `run_scan`；成功输出 `ZCRW_REMIND_JOB_OK approvals=… tasks=… schedules=… total=…`，失败输出 `ZCRW_REMIND_JOB_FAIL …` | 已实现（作业定义由 basis 在 SM36 建，本轮不建） |
-| SPA（`src/mime/`） | MIME | 顶栏铃铛 + `#/notifications` 页面 | 未读徽标 60s 轮询、启动刷新、下拉最近 5 条未读、刷新 / 全部已读 / 标记已读 | 已实现（截图待人工重拍） |
+| SPA（`src/mime/`） | MIME | 顶栏铃铛 + `#/notifications` 页面 | 未读徽标 60s 轮询、启动刷新、下拉最近 5 条未读、刷新 / 全部已读 / 标记已读 | 已实现（M5 截图已重拍） |
 
 - **事件钩子**：`ZCL_CRW_APPR_SVC` 在审批步骤生成后调用 `notify_approval_pending`、驳回后调用 `notify_approval_rejected`；通知异常被吞掉，**不阻塞审批主流程**。
 - **初始化 / 演示 / 复位**：`ZCL_CRW_BOOTSTRAP` 版本号升到 1.2.0；`ZCL_CRW_DEMO_DATA` 种子含通知（输出增加 `notifications=…`）；`ZCL_CRW_TEST_DATA` 复位清 `ZCRW_NOTIFY`。
