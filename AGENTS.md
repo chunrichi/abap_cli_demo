@@ -384,7 +384,7 @@ node_modules/
 - 预检：`abap doctor --json`、`abap init --show-config --json`、`abap profile test`（详见 `abap-cli-setup`）。
 - ICF 依赖：DDIC / `select` / `fields` / `run-report` 依赖内置 ICF 服务；`abap deploy status --json` 过期时执行 `abap deploy --yes --json`。
 - 环境差异（ECC / S/4、release）写进 demo README 的前置条件，demo 不写死系统信息。
-- 当前工作区（2026-11-01）：active profile `test`（systemVersion 789）、abap-cli 2.0.0（Node 24 LTS）、ICF 2.0.0 current；本地包 `$CRW` 已创建，`$` 本地包写路径可用（§4A.3 / 规划文档 B.3）；NROB（空 subType）与 MSAG（ADT→ICF fallback）已在本地 CLI 仓库修复并验证（规划文档 B.4，改动未提交）。
+- 当前工作区（2026-11-01）：active profile `test`（systemVersion 789）、abap-cli 2.0.0（Node 24 LTS）、ICF 2.0.0 current；本地包 `$CRW` 已创建，`$` 本地包写路径可用（§4A.3 / 规划文档 B.3）；NROB（空 subType）与 MSAG（ADT→ICF fallback）已在本地 CLI 仓库修复并验证（commit `c1367d6`，规划文档 B.4）。
 
 ## 14. 参考
 

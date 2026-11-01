@@ -807,7 +807,7 @@ apps/change-request-workbench/
 | CTS 只读 | **已通过**：`E070` / `E071` / `E07T` 可读；`TMSBUFFER` 字段可查 |
 | NROB | **已通过（CLI 修复后）**：`ZCRW_REQ` / `ZCRW_CD` / `ZCRW_TASK` 已建；TNRO 3 行，`DTELSOBJ` 为空 |
 | MSAG | **已通过（CLI 修复后）**：`ZCRW_MSG` 已建（ADT 失败自动回退 ICF）；T100 8 条 |
-| CLI 本地修复 | NROB 空 subType + MSAG ADT→ICF fallback（工作区外 CLI 仓库，未提交；备份 `/tmp/crw-cli-fix-backup-*`）；完整单测 229 文件 / 2201 用例全绿 |
+| CLI 本地修复 | NROB 空 subType + MSAG ADT→ICF fallback（工作区外 CLI 仓库 commit `c1367d6`）；完整单测 229 文件 / 2201 用例全绿 |
 | MIME/ICF/TRAN/ENQU | ENQU 两个锁对象已建；MIME/ICF/TRAN 留到 M1 与真实 handler/前端一起验证 |
 | 本机 Node | 宿主已升级到 Node v24.22.2（CLI 2.0.0 的 Node 24 LTS 要求）；`tmp/` 下的 Electron Node wrapper 仅为历史 fallback，不再需要 |
 
@@ -856,7 +856,7 @@ apps/change-request-workbench/
 | 2 | MSAG create 报 `No URI-Mapping defined for URI` | 通道探测按 release（789）选 ADT，但本系统 ADT 无 message-class 端点（`profile test`: msag.adt=absent, msag.icf=ok） | 本地 CLI 的 create / pull / push MSAG 在 ADT 端点缺失时自动回退 ICF | **已修复并验证**：`ZCRW_MSG` 已建，T100 8 条 |
 | 3 | 建表时 deep / 数值类型报 enhancement category 错误 | ICF 建表 handler 的 exclass 固定为 '2'（Can Be Enhanced (Char. Type)），未从 AFF 读取 | 设计改为 char-only 类型（见 §4.2） | **已按约束落地**；后续可推动 CLI 支持 exclass，再引入 deep/数值类型 |
 
-**说明**：1/2 的 CLI 修复在工作区外的 `vibe_with_abap` 本地仓库，**未提交**；备份在 `/tmp/crw-cli-fix-backup-*`。完整单测 229 文件 / 2201 用例全绿；升级 CLI 后需重新 `abap deploy --yes`。
+**说明**：1/2 的 CLI 修复在工作区外的 `vibe_with_abap` 本地仓库，已提交 `c1367d6`；完整单测 229 文件 / 2201 用例全绿；升级 CLI 后需重新 `abap deploy --yes`。
 
 ## 附录 C：待补充文档（M0/M1）
 
