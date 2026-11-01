@@ -17,7 +17,7 @@
 
 ## 当前状态（2026-11-01）
 
-- 预检：abap-cli 2.0.0；`abap doctor` ok；内置 ICF 2.0.0 current；profile `test`（systemVersion 789）。
+- 预检：abap-cli 2.0.0（环境已升级到 2.0.1，升级后 `abap deploy --yes` 刷新内置 ICF 并 `deploy status` current）；`abap doctor` ok；profile `test`（systemVersion 789）。
 - 包：`$CRW` 本地包（super package `$TMP`，无 transport；**不可跨系统部署**）。
 - 数据模型：13 张 `ZCRW_*` 表、3 个号段（`ZCRW_REQ`/`ZCRW_CD`/`ZCRW_TASK`）、消息类 `ZCRW_MSG`、锁对象 `EZCRW_REQ`/`EZCRW_CD`（锁参数 `REQ_ID`/`CD_ID` 已激活）。
 - 服务层：`ZCL_CRW_UTIL` / `_NUMBER` / `_AUDIT` / `_AUTH` / `_WORKFLOW` / `_APPR_SVC` / `_SCHEDULE_SVC` / `_REQUEST_SVC` / `_CD_SVC` / `_TASK_SVC` / `_TRANSPORT_SVC` / `_REPORT_SVC` / `_BOOTSTRAP` / `_MIGRATION` / `_SELFCHECK` / `_M1_SMOKE` / `_TEST_DATA` / `_DEMO_DATA`、`ZIF_CRW_CTS_READER` + `ZCL_CRW_CTS_ADAPTER`、`ZCX_CRW_ERROR`。
