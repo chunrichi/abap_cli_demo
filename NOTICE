@@ -1,0 +1,24 @@
+NOTICE — 第三方内容与生成物说明
+
+本仓库（abap_cli_demo）除以下内容外，均由仓库作者创作，并按根目录 LICENSE（MIT）授权。
+以下第三方/生成内容的版权归各自权利人；MIT 许可全文见根目录 LICENSE。
+
+1. abap-cli 技能与代理生成物
+   路径：`.agents/skills/abap-cli/`、`.agents/skills/abap-cli-setup/`、`.agents/skills/abap-cli-search/`、
+        `.agents/skills/abap-cli-edit/`、`.agents/skills/abap-cli-data/`、`.agents/skills/abap-cli-performance/`、
+        `.agents/agents/`
+   来源：由 abap-cli（https://github.com/chunrichi/abap-cli）的 `abap init --agent generic` 生成，
+        升级时用 `abap init --agent generic --force` 重新生成并 review 差异。
+   许可：MIT License，Copyright (c) 2026 abap-cli contributors。
+
+2. abap-style 技能
+   路径：`.agents/skills/abap-style/`
+   来源：chunrichi/abap-coding（https://github.com/chunrichi/abap-coding），v1.0.7，手工同步。
+   许可：上游仓库当前未声明独立开源许可证；该内容为仓库作者（chunrichi）本人的作品，
+        在本仓库中随根 LICENSE（MIT）一并授权。
+
+3. 截图与业务数据
+   `demos/*/screenshots/`、`apps/*/screenshots/` 中的截图由本仓库作者制作并脱敏，不含第三方素材；
+   仓库不包含真实业务数据、内网地址、凭证或 transport 号。
+
+如发现署名遗漏或许可问题，请按 CONTRIBUTING.md 提交 issue。
