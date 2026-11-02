@@ -78,6 +78,11 @@ CLASS zcl_crw_notify DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING VALUE(rv_updated) TYPE i
       RAISING   zcx_crw_error.
 
+    CLASS-METHODS mark_dedup_read
+      IMPORTING iv_user           TYPE string
+                iv_dedup_key      TYPE string
+      RETURNING VALUE(rv_updated) TYPE i.
+
     CLASS-METHODS mark_all_read
       IMPORTING iv_user           TYPE string
       RETURNING VALUE(rv_updated) TYPE i
@@ -518,6 +523,21 @@ CLASS zcl_crw_notify IMPLEMENTATION.
     UPDATE zcrw_notify
       SET status = @gc_status_read, read_at = @lv_now
       WHERE notify_id = @lv_id AND user_id = @lv_user AND status = @gc_status_unread.
+    rv_updated = sy-dbcnt.
+  ENDMETHOD.
+
+  METHOD mark_dedup_read.
+    DATA lv_user TYPE zcrw_notify-user_id.
+    DATA lv_dedup TYPE zcrw_notify-dedup_key.
+    DATA lv_now TYPE char14.
+
+    lv_user = iv_user.
+    lv_dedup = iv_dedup_key.
+    lv_now = zcl_crw_util=>now( ).
+
+    UPDATE zcrw_notify
+      SET status = @gc_status_read, read_at = @lv_now
+      WHERE user_id = @lv_user AND dedup_key = @lv_dedup AND status = @gc_status_unread.
     rv_updated = sy-dbcnt.
   ENDMETHOD.
 

@@ -10,6 +10,7 @@ CLASS zcl_crw_api_approval DEFINITION PUBLIC FINAL CREATE PUBLIC.
              decision TYPE string,
              comment  TYPE string,
              version  TYPE i,
+             approver TYPE string,
            END OF ty_body.
 
     CLASS-METHODS list_approvals
@@ -21,6 +22,11 @@ CLASS zcl_crw_api_approval DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RAISING   zcx_crw_error.
 
     CLASS-METHODS decide
+      IMPORTING io_ctx    TYPE REF TO zcl_crw_api_context
+                iv_appr_id TYPE string
+      RAISING   zcx_crw_error.
+
+    CLASS-METHODS reassign
       IMPORTING io_ctx    TYPE REF TO zcl_crw_api_context
                 iv_appr_id TYPE string
       RAISING   zcx_crw_error.
@@ -67,6 +73,10 @@ CLASS zcl_crw_api_approval IMPLEMENTATION.
       lv_sub = it_segments[ 3 ].
       IF lv_sub = 'decision'.
         decide( io_ctx = io_ctx iv_appr_id = lv_id ).
+        RETURN.
+      ENDIF.
+      IF lv_sub = 'reassign'.
+        reassign( io_ctx = io_ctx iv_appr_id = lv_id ).
         RETURN.
       ENDIF.
     ENDIF.
@@ -133,6 +143,29 @@ CLASS zcl_crw_api_approval IMPLEMENTATION.
     ls_after = zcl_crw_appr_svc=>get_step( iv_appr_id ).
     lv_json = |\{"id":"{ ls_after-appr_id }","objectType":"{ ls_after-object_type }"| &&
               |,"objectId":"{ ls_after-object_id }","apprState":"{ ls_after-appr_state }"\}|.
+    io_ctx->set_json( lv_json ).
+  ENDMETHOD.
+
+  METHOD reassign.
+    DATA ls_body TYPE ty_body.
+    DATA ls_after TYPE zcrw_appr.
+    DATA lv_json TYPE string.
+
+    ls_body = read_body( io_ctx ).
+    IF ls_body-approver IS INITIAL.
+      RAISE EXCEPTION TYPE zcx_crw_error
+        EXPORTING iv_code = 'VALIDATION_ERROR' iv_text = 'approver is required'.
+    ENDIF.
+
+    zcl_crw_appr_svc=>reassign( iv_appr_id      = iv_appr_id
+                                iv_user         = io_ctx->mv_user
+                                iv_new_approver = to_upper( ls_body-approver )
+                                iv_comment      = ls_body-comment ).
+
+    ls_after = zcl_crw_appr_svc=>get_step( iv_appr_id ).
+    lv_json = |\{"id":"{ ls_after-appr_id }","objectType":"{ ls_after-object_type }"| &&
+              |,"objectId":"{ ls_after-object_id }","approver":"{ ls_after-approver }"| &&
+              |,"apprState":"{ ls_after-appr_state }"\}|.
     io_ctx->set_json( lv_json ).
   ENDMETHOD.
 

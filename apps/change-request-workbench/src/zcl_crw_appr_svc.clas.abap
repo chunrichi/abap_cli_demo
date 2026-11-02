@@ -36,6 +36,14 @@ CLASS zcl_crw_appr_svc DEFINITION PUBLIC FINAL CREATE PUBLIC.
       RETURNING VALUE(rv_all_approved) TYPE abap_bool
       RAISING   zcx_crw_error.
 
+    CLASS-METHODS reassign
+      IMPORTING iv_appr_id      TYPE string
+                iv_user         TYPE string
+                iv_new_approver TYPE string
+                iv_comment      TYPE string DEFAULT ''
+      RETURNING VALUE(rs_step)  TYPE zcrw_appr
+      RAISING   zcx_crw_error.
+
     CLASS-METHODS skip_step
       IMPORTING iv_object_type        TYPE string
                 iv_object_id          TYPE string
@@ -328,6 +336,86 @@ CLASS zcl_crw_appr_svc IMPLEMENTATION.
                           iv_action      = 'APPROVE_STEP'
                           iv_comment     = iv_comment ).
     ENDIF.
+  ENDMETHOD.
+
+  METHOD reassign.
+    DATA ls_step TYPE zcrw_appr.
+    DATA lv_old_approver TYPE zcrw_appr-approver.
+    DATA lv_now TYPE char14.
+    DATA lt_roles TYPE zcl_crw_auth=>tt_roles.
+    DATA lt_allowed TYPE string_table.
+
+    IF iv_appr_id IS INITIAL OR iv_user IS INITIAL OR iv_new_approver IS INITIAL.
+      RAISE EXCEPTION TYPE zcx_crw_error
+        EXPORTING iv_code = 'VALIDATION_ERROR'
+                  iv_text = 'Approval id, actor and new approver are required'.
+    ENDIF.
+    IF strlen( iv_new_approver ) > 12.
+      RAISE EXCEPTION TYPE zcx_crw_error
+        EXPORTING iv_code = 'VALIDATION_ERROR'
+                  iv_text = 'The approver id must not exceed 12 characters'.
+    ENDIF.
+
+    SELECT SINGLE * FROM zcrw_appr WHERE appr_id = @iv_appr_id INTO @ls_step.
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION TYPE zcx_crw_error
+        EXPORTING iv_code = 'APPR_NOT_FOUND' iv_text = |Approval step { iv_appr_id } not found|.
+    ENDIF.
+
+    IF ls_step-appr_state <> gc_state_pending.
+      RAISE EXCEPTION TYPE zcx_crw_error
+        EXPORTING iv_code = 'INVALID_TRANSITION' iv_text = 'Only a pending step can be reassigned'.
+    ENDIF.
+
+*   The current approver may reassign the step; change managers and admins may do it as well.
+    IF ls_step-approver <> iv_user.
+      lt_roles = zcl_crw_auth=>load_roles( iv_user = iv_user ).
+      lt_allowed = VALUE #( ( zcl_crw_auth=>gc_change_manager ) ( zcl_crw_auth=>gc_admin ) ).
+      IF zcl_crw_auth=>has_any_role( it_roles = lt_roles iv_roles = lt_allowed ) = abap_false.
+        RAISE EXCEPTION TYPE zcx_crw_error
+          EXPORTING iv_code = 'FORBIDDEN' iv_text = 'Only the current approver or a change manager can reassign'.
+      ENDIF.
+    ENDIF.
+
+    IF iv_new_approver = ls_step-approver.
+      RAISE EXCEPTION TYPE zcx_crw_error
+        EXPORTING iv_code = 'VALIDATION_ERROR' iv_text = 'The new approver is identical to the current approver'.
+    ENDIF.
+
+    IF object_requester( iv_object_type = CONV string( ls_step-object_type )
+                         iv_object_id   = CONV string( ls_step-object_id ) ) = iv_new_approver.
+      RAISE EXCEPTION TYPE zcx_crw_error
+        EXPORTING iv_code = 'SELF_APPROVAL' iv_text = 'The requester cannot approve the own change request'.
+    ENDIF.
+
+    lv_old_approver = ls_step-approver.
+    lv_now = zcl_crw_util=>now( ).
+
+    UPDATE zcrw_appr
+      SET approver = @iv_new_approver
+      WHERE appr_id = @iv_appr_id.
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION TYPE zcx_crw_error
+        EXPORTING iv_code = 'APPR_UPDATE' iv_text = 'Could not reassign the approval step'.
+    ENDIF.
+
+    zcl_crw_audit=>log( iv_object_type = CONV string( ls_step-object_type )
+                        iv_object_id   = CONV string( ls_step-object_id )
+                        iv_action      = 'REASSIGN'
+                        iv_field       = 'APPROVER'
+                        iv_old_value   = CONV string( lv_old_approver )
+                        iv_new_value   = iv_new_approver
+                        iv_comment     = iv_comment ).
+
+*   Notify the new approver and mark the previous approver notification as read.
+    ls_step-approver = iv_new_approver.
+    zcl_crw_notify=>notify_approval_pending( ls_step ).
+    zcl_crw_notify=>mark_dedup_read( iv_user      = CONV string( lv_old_approver )
+                                     iv_dedup_key = |APPR:{ iv_appr_id }| ).
+
+    COMMIT WORK AND WAIT.
+
+    SELECT SINGLE * FROM zcrw_appr WHERE appr_id = @iv_appr_id INTO @rs_step.
   ENDMETHOD.
 
   METHOD skip_step.

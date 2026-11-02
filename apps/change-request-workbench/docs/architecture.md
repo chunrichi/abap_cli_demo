@@ -199,7 +199,7 @@ CTS Adapter（只读）── E070 / E071 / E07T / TMS 队列
 | `ZCL_CRW_LOG` | CLAS | 应用日志写入（不阻塞业务） | `ZRW_LOG` 行；`write` / `write_and_commit` | 已实现 |
 | `ZCL_CRW_AUTH` | CLAS | 角色装载与判定 | `load_roles` / `role_members` / `is_admin` / `has_role` / `require_any` | 已实现 |
 | `ZCL_CRW_WORKFLOW` | CLAS | 状态机纯逻辑（REQ / CD / TASK） | `target_status` / `is_valid` / `is_terminal` / `allowed_actions` | 已实现（D19 提前落地） |
-| `ZCL_CRW_APPR_SVC` | CLAS | 审批步骤生成 / 决策 / 跳过 / 列表 | 矩阵匹配 + ANY 规则 + 自审拦截 + 对象收尾；`ZCRW_APPR` | 已实现 |
+| `ZCL_CRW_APPR_SVC` | CLAS | 审批步骤生成 / 决策 / 跳过 / 改派 / 列表 | 矩阵匹配 + ANY 规则 + 自审拦截 + 对象收尾；`reassign`（M6a，权限/审计/通知）；`ZCRW_APPR` | 已实现 |
 | `ZCL_CRW_SCHEDULE_SVC` | CLAS | 导入计划 CRUD 与逾期计算 | `create_or_update` / `cancel` / `confirm` / `active_for_object` / `is_overdue` | 已实现（M3 复用） |
 | `ZCL_CRW_API_TYPES` | CLAS | API DTO 类型集合 | camelCase DTO（§6.7） | 已实现 |
 | `ZCL_CRW_API_MAP` | CLAS | DDIC 行 → DTO 映射 | `request` / `change_document` / `task` / `approval` / `transport` / `history` / `note` / `import_schedule` | 已实现 |
@@ -233,14 +233,15 @@ CTS Adapter（只读）── E070 / E071 / E07T / TMS 队列
 | 对象 | 类型 | 职责 | 关键实现 / 输出 | 状态 |
 |---|---|---|---|---|
 | `ZCRW_NOTIFY` | TABL | 站内通知（个人） | 字段与去重见 §5.3 / §5.8；`NOTIFY_ID` CHAR32 主键 | 已建 |
-| `ZCL_CRW_NOTIFY` | CLAS + classrun | 通知服务 | `emit`（发布通知，dedup）/ `refresh_for_user` / `run_scan` / `list_for_user` / `unread_count` / `mark_read` / `mark_all_read`；事件钩子 `notify_approval_pending` / `notify_approval_rejected`；邮件预留 `deliver_email`；只读探测输出 `CRW_NOTIFY_OK rows=… unread=…` | 已实现（单测 5 例） |
+| `ZCL_CRW_NOTIFY` | CLAS + classrun | 通知服务 | `emit`（发布通知，dedup）/ `refresh_for_user` / `run_scan` / `list_for_user` / `unread_count` / `mark_read` / `mark_all_read` / `mark_dedup_read`；事件钩子 `notify_approval_pending` / `notify_approval_rejected`；邮件预留 `deliver_email`；只读探测输出 `CRW_NOTIFY_OK rows=… unread=…` | 已实现（单测 5 例） |
 | `ZCL_CRW_API_NOTIFY` | CLAS | 通知控制器 | `/notifications`、`/notifications/unread-count`、`/notifications/refresh`、`/notifications/{id}/read`、`/notifications/read-all` | 已实现 |
 | `ZCL_CRW_API_MAP` | CLAS | DTO 映射 | 新增 `notification( )`（DDIC → §6.7 通知 DTO） | 已实现 |
 | `ZCL_CRW_API_TYPES` | CLAS | DTO 类型 | 新增 `ty_notification` / `tt_notifications` | 已实现 |
 | `ZCRW_REMIND_JOB` | PROG | 提醒报表（SM36 可调度） | 调用 `run_scan`；成功输出 `ZCRW_REMIND_JOB_OK approvals=… tasks=… schedules=… total=…`，失败输出 `ZCRW_REMIND_JOB_FAIL …` | 已实现（作业定义由 basis 在 SM36 建，本轮不建） |
 | SPA（`src/mime/`） | MIME | 顶栏铃铛 + `#/notifications` 页面 | 未读徽标 60s 轮询、启动刷新、下拉最近 5 条未读、刷新 / 全部已读 / 标记已读 | 已实现（M5 截图已重拍） |
 
-- **事件钩子**：`ZCL_CRW_APPR_SVC` 在审批步骤生成后调用 `notify_approval_pending`、驳回后调用 `notify_approval_rejected`；通知异常被吞掉，**不阻塞审批主流程**。
+- **事件钩子**：`ZCL_CRW_APPR_SVC` 在审批步骤生成后调用 `notify_approval_pending`、驳回后调用 `notify_approval_rejected`；改派时通知新审批人并把原审批人 `APPR:{id}` 通知标记已读；通知异常被吞掉，**不阻塞审批主流程**。
+- **M6a 审批改派（2026-11-03）**：`ZCL_CRW_APPR_SVC=>reassign` + `POST /approvals/{id}/reassign`；权限 = 当前审批人 / `CHANGE_MANAGER` / `ADMIN`；仅 `PENDING` 步骤，新审批人 ≤12 字符、非当前审批人、非请求人；写 `ZCRW_HIST`（`REASSIGN` / `APPROVER`）并通知新审批人；单测 3 例。
 - **初始化 / 演示 / 复位**：`ZCL_CRW_BOOTSTRAP` 版本号升到 1.2.0；`ZCL_CRW_DEMO_DATA` 种子含通知（输出增加 `notifications=…`）；`ZCL_CRW_TEST_DATA` 复位清 `ZCRW_NOTIFY`。
 - **自检**：`ZCL_CRW_SELFCHECK` 覆盖 14 表并在输出中增加 `notifications=…`（只读）。
 - **前端导航**：侧栏「变更流程」组新增「通知」入口，顶栏铃铛与通知中心同源；路由 `#/notifications`，页面标题「通知中心」。
@@ -506,6 +507,7 @@ User ──< RoleAssignment（全局 / 组件 / 周期）
 | GET | `/approvals` | 待我审批 / 我审批过的 / 全部待办 |
 | GET | `/approvals/steps?objectType=&objectId=` | 对象审批步骤 |
 | POST | `/approvals/{id}/decision` | 通过 / 驳回（带意见） |
+| POST | `/approvals/{id}/reassign` | 改派当前审批人（M6a，`{approver, comment}`） |
 
 **传输与 ToC（只读集成 + 手工关联）**
 
