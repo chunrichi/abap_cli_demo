@@ -139,15 +139,22 @@ function relativeFromMs(ts) {
   if (Number.isNaN(diff)) return '—';
   if (diff < 0) {
     const ahead = Math.abs(diff);
-    if (ahead < 3600000) return Math.round(ahead / 60000) + ' 分钟后';
-    if (ahead < 86400000) return Math.round(ahead / 3600000) + ' 小时后';
-    return Math.round(ahead / 86400000) + ' 天后';
+    // SAP 系统时钟可能略快于浏览器本机，分钟级偏差按“刚刚”处理，避免出现“x 分钟后”。
+    if (ahead <= 10 * 60000) return '刚刚';
+    // 更大的未来时间视为数据异常，显示绝对时间而不是“后”。
+    return fmtLocalDateTime(ts);
   }
   if (diff < 60000) return '刚刚';
   if (diff < 3600000) return Math.max(1, Math.round(diff / 60000)) + ' 分钟前';
   if (diff < 86400000) return Math.round(diff / 3600000) + ' 小时前';
   if (diff < 86400000 * 30) return Math.round(diff / 86400000) + ' 天前';
   return fmtDate(new Date(ts).toISOString());
+}
+
+function fmtLocalDateTime(ts) {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 /** 是否已过期（仅按日期/时间字面比较，不做时区换算）。 */
