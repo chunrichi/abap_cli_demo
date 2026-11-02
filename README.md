@@ -40,7 +40,8 @@ abap doctor --json
 - [`docs/demo-library-plan.md`](docs/demo-library-plan.md)：示例清单与路线图
 - [`docs/change-request-workbench-plan.md`](docs/change-request-workbench-plan.md)：变更请求工作台（应用型项目）规划
 - [`docs/github-workflow.md`](docs/github-workflow.md)：GitHub 决策记录（D1–D13）与发布流程
-- [`docs/handoff-next-session.md`](docs/handoff-next-session.md)：下一任务交接（GitHub 发布与提交/分支/PR 规则）
+- [`docs/handoff-next-session.md`](docs/handoff-next-session.md)：下一阶段交接（CRW M6 审批增强 + 产品化 + basis 落地）
+- [`docs/handoff-github-publish.md`](docs/handoff-github-publish.md)：已完成任务存档（GitHub 发布与提交/分支/PR 规则）
 - [`demos/`](demos/)：每个 demo 一个目录
 - [`apps/`](apps/)：应用型项目（非 demo），当前为变更请求工作台（CRW）
 - [`scripts/check-secrets.sh`](scripts/check-secrets.sh)：push/PR 前本地敏感信息扫描

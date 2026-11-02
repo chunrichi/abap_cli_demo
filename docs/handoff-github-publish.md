@@ -1,5 +1,8 @@
 # Handoff：GitHub 项目创建与提交规则（下一个会话）
 
+> **状态：✅ 已完成（2026-11-02）。本文是 GitHub 发布任务的存档记录，仅用于追溯；请勿按 §5 重新执行。**
+> 当前下一阶段入口：[`docs/handoff-next-session.md`](handoff-next-session.md)；发布决策与完成记录见 [`docs/github-workflow.md`](github-workflow.md)。
+
 > 用途：把当前**本地**仓库 `abap_cli_demo` 发布到 GitHub，并规划/落地后续的提交、分支、PR、发布规则。
 > 上一个任务（CRW 应用 M1–M4）已交付完成，摘要见 §11；应用级交接见 [`apps/change-request-workbench/docs/handoff.md`](../apps/change-request-workbench/docs/handoff.md)。
 > 本文件是下一个任务的唯一入口。执行前先读仓库根 [`AGENTS.md`](../AGENTS.md)（仓库合约，不可协商项优先）。

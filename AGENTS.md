@@ -66,7 +66,8 @@ abap_cli_demo/
 │   ├── demo-library-plan.md   # demo 线：结构、示例清单、路线图
 │   ├── change-request-workbench-plan.md  # 应用线：CRW 规划
 │   ├── github-workflow.md     # GitHub 决策记录（D1–D13）与发布流程
-│   └── handoff-next-session.md  # 会话交接
+│   ├── handoff-github-publish.md  # 已完成：GitHub 发布任务存档
+│   └── handoff-next-session.md    # 下一阶段交接（M6 审批/产品化 + basis 落地）
 ├── demos/
 │   ├── 01-icf-mime-stats/
 │   │   ├── README.md          # 场景 + 原始 Prompt + 实现说明 + 运行验证（+ 截图）
