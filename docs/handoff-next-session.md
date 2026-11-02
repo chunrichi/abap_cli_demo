@@ -36,7 +36,7 @@ abap run ZCL_CRW_NOTIFY --json
 ### M6a 审批增强（优先，纯应用内）
 
 1. **ALL 通过规则**：审批矩阵支持“任一人（ANY）/ 全部（ALL）”；需先确认 `ZCRW_APPR_CFG` 加字段的可行路径（abap-cli 对已有表加字段的能力需实测；不可行则改用独立规则表），含迁移、单测、审批页展示与推进逻辑。
-2. **审批改派**：`POST /approvals/{id}/reassign`（当前审批人或 `CHANGE_MANAGER`/`ADMIN` 可改派；写审计；通知新审批人；页面动作）。
+2. **审批改派**：✅ 已交付（2026-11-03，PR #6）：`POST /approvals/{id}/reassign`（当前审批人或 `CHANGE_MANAGER`/`ADMIN`）；写 `ZCRW_HIST`、通知新审批人、标记原审批人通知已读；审批抽屉「改派」动作；单测 3/3；真实审批步骤 old→new→old 探针通过。
 3. **URG 事后补审**：URG 变更的事后补审模型（状态/清单/提醒）、待补审报表与通知；与 workflow W20 对齐并补契约文档。
 
 ### M6b 产品化小项

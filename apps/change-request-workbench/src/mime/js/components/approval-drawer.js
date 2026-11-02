@@ -125,9 +125,11 @@ export async function openApprovalDrawer(approval, ctx) {
       </div>`;
   }
 
+  const canReassign = canDecide && (isApprover || store.hasAnyRole(['CHANGE_MANAGER', 'ADMIN']));
   if (drawer.foot) {
     drawer.foot.innerHTML =
       '<button type="button" class="btn" data-drawer-close>关闭</button>' +
+      `<button type="button" class="btn" data-reassign${canReassign ? '' : ' disabled title="仅当前审批人或变更经理/管理员可改派"'}>改派</button>` +
       `<button type="button" class="btn btn-danger" data-approval="REJECTED"${disabledReason ? ' disabled title="' + ui.esc(disabledReason) + '"' : ''}>驳回</button>` +
       `<button type="button" class="btn btn-primary" data-approval="APPROVED"${disabledReason ? ' disabled title="' + ui.esc(disabledReason) + '"' : ''}>通过</button>`;
     ui.bind(drawer.foot, '[data-drawer-close]', 'click', () => drawer.close());
@@ -172,6 +174,44 @@ export async function openApprovalDrawer(approval, ctx) {
     ui.bindAll(drawer.foot, '[data-approval]', 'click', (event, el) => {
       if (el.disabled) return;
       decide(el.getAttribute('data-approval'), el);
+    });
+  }
+
+  if (drawer.foot) {
+    ui.bind(drawer.foot, '[data-reassign]', 'click', async (event, el) => {
+      if (el.disabled) return;
+      const values = await ui.confirmDialog({
+        title: '改派审批人',
+        message: '改派会写审计并通知新审批人；当前步骤此前未读的通知会被标记已读。',
+        confirmText: '改派',
+        fields: [
+          {
+            name: 'approver',
+            label: '新审批人',
+            required: true,
+            maxlength: 12,
+            placeholder: 'SAP 用户名（≤12 字符）',
+            hint: '不能是请求人本人。'
+          },
+          { name: 'comment', label: '说明', type: 'textarea', rows: 2, placeholder: '改派原因（可选）' }
+        ]
+      });
+      if (!values) return;
+      ui.setBusy(el, true);
+      try {
+        await api.post('/approvals/' + encodeURIComponent(approval.id) + '/reassign', {
+          approver: values.approver,
+          comment: values.comment || ''
+        });
+        drawer.close();
+        ui.toast('已改派给 ' + values.approver + '。', { type: 'success' });
+        ctx.reload();
+      } catch (err) {
+        const info = describeError(err);
+        ui.toast(info.message, { title: info.title, type: 'error', correlationId: info.correlationId });
+      } finally {
+        ui.setBusy(el, false);
+      }
     });
   }
 }

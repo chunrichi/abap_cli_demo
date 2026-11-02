@@ -447,3 +447,28 @@ P0 端点（完整 40 个见 architecture §6.2）：
 | UI | `#/notifications` + 顶栏铃铛 | 页面可见、标记已读生效（M5 截图已重拍 9 张；浏览器交互回归待人工） |
 
 **未完成 / 边界**：SMTP 未配置（邮件不发）；SM36 作业定义未建（basis）；`DISMISSED` 枚举预留、无忽略端点；包迁移 / 索引 / 归档 / 权限对象 / Fiori 只出设计（[`p2-basis.md`](p2-basis.md)）。
+
+### 14.6 M6a 审批改派（2026-11-03）
+
+**交付清单**
+
+| 类别 | 内容 |
+|---|---|
+| 服务 | `ZCL_CRW_APPR_SVC=>reassign`：仅 `PENDING` 步骤；当前审批人 / `CHANGE_MANAGER` / `ADMIN` 可操作；新审批人 ≤12 字符、非当前审批人、非请求人；更新 `ZCRW_APPR.APPROVER`、写 `ZCRW_HIST`（`REASSIGN`）、通知新审批人并把原审批人通知标记已读、`COMMIT` |
+| API | `POST /api/v1/approvals/{id}/reassign`（`ZCL_CRW_API_APPROVAL`，写保护 `X-CRW-Request: 1`） |
+| 通知 | `ZCL_CRW_NOTIFY=>mark_dedup_read`：按 `USER_ID + DEDUP_KEY` 把未读通知置 `READ` |
+| 前端 | 审批抽屉「改派」：仅当前审批人或变更经理/管理员可用；确认框输入新审批人与说明 |
+| 测试 | `ZCL_CRW_APPR_SVC` 单测 3 例（空审批 id / 空新审批人 / 超长审批人 → `VALIDATION_ERROR`） |
+
+**验证口径（2026-11-03 实测）**
+
+| 项 | 命令 | 结果 |
+|---|---|---|
+| 单测 | `abap test ZCL_CRW_APPR_SVC --json` | 3/3 通过 |
+| 改派探针 | 临时 classrun 对真实 PENDING 步骤执行 old→new→old | `PROBE_REASSIGN_OK appr=… old=SAP103`；探针已删除 |
+| 数据断言 | `abap select --table ZCRW_APPR` | 审批人回到原值，`APPR_STATE=PENDING` |
+| 审计 | `abap select --table ZCRW_HIST --where "ACTION = 'REASSIGN'"` | 2 行（SAP103→DEMO_ALT、DEMO_ALT→SAP103），`CHANGED_BY=SAP103` |
+| 通知 | `abap select --table ZCRW_NOTIFY` | 新审批人收到 `APPROVAL_PENDING`；原审批人通知为 `READ` |
+| 回归 | selfcheck + util/workflow/json/notify 单测 | `CRW_SELFCHECK_OK tables=14 version=1.2.0 icf=OK cts=OK`；4/4、10/10、8/8、5/5 |
+
+**未完成 / 边界**：ALL 通过规则、URG 事后补审仍在 M6a 待办；改派 UI 的浏览器交互回归待人工。

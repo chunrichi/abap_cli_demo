@@ -1,6 +1,6 @@
 # 变更请求工作台（CRW）
 
-> 状态：M1（API + SPA + ICF/事务码）→ M2（流程闭环 + 审批 + 锁）→ M3（CTS 只读 + 传输 + 导入计划）→ M4（报表 + 配置 + 迁移/产品化）→ **M5 / P2 站内通知中心 + 提醒作业（2026-11-02）** 已实现；P2 其余项见文末。
+> 状态：M1（API + SPA + ICF/事务码）→ M2（流程闭环 + 审批 + 锁）→ M3（CTS 只读 + 传输 + 导入计划）→ M4（报表 + 配置 + 迁移/产品化）→ **M5 / P2 站内通知中心 + 提醒作业（2026-11-02）** 已实现 → **M6a 审批改派（2026-11-03）** 已实现；P2 其余项见文末。
 > 这是**真实应用**，不是 demo；不套用 demo 的 `DMA` 命名与编号，契约见仓库 [`AGENTS.md`](../../AGENTS.md) §4A。
 > 产品规划与决策记录：[docs/change-request-workbench-plan.md](../../docs/change-request-workbench-plan.md)（D11–D25 / W1–W30 已冻结）。
 > 架构与流程契约：[docs/architecture.md](docs/architecture.md)、[docs/workflow.md](docs/workflow.md)；P2 basis 类项设计：[docs/p2-basis.md](docs/p2-basis.md)。
@@ -30,6 +30,7 @@
   - 报表：变更分布/趋势、审批/关闭时长、逾期清单、ToC 漏斗、CSV 导出。
   - 配置：周期/角色/审批矩阵/号段只读；`/health` 组件健康、`/me` 角色、`/dashboard` KPI + 动态。
   - **通知（M5）**：`/notifications`（列表：状态/类型/分页）、`/notifications/unread-count`、`/notifications/refresh`、`/notifications/{id}/read`、`/notifications/read-all`；写请求需 `X-CRW-Request: 1`。
+  - **审批改派（M6a）**：`/approvals/{id}/reassign`（`{approver, comment}`）；仅 PENDING 步骤，当前审批人 / `CHANGE_MANAGER` / `ADMIN` 可操作；写审计并通知新审批人。
 - 前端：`src/mime/` 原生 ES modules 单页（零依赖/零构建），16 个页面 + 顶栏通知铃铛/动作条/审批抽屉/时间线/表格组件；部署于 MIME `/zcrw`。
 - 入口：事务码 `ZCRW`（报表事务 → `ZCRW_START`，运行时展示 `<system-url>/sap/bc/zcrw/`，不写死地址）。
 - 初始化：`ZCL_CRW_BOOTSTRAP` **v1.2.0**（号段 + 版本 + REQ/CD 审批矩阵 + ADMIN/CHANGE_MANAGER 角色），幂等；`ZCL_CRW_MIGRATION` 单步前向迁移。
@@ -60,6 +61,7 @@ abap test ZCL_CRW_UTIL --json            # ABAP Unit（util）
 abap test ZCL_CRW_WORKFLOW --json        # ABAP Unit（状态机，10 用例）
 abap test ZCL_CRW_JSON --json            # ABAP Unit（JSON，8 用例）
 abap test ZCL_CRW_NOTIFY --json          # ABAP Unit（通知，5 用例；实测 5/5 通过）
+abap test ZCL_CRW_APPR_SVC --json        # ABAP Unit（审批改派输入校验，3 用例；实测 3/3 通过）
 abap select --table DD02L --where "TABNAME LIKE 'ZCRW%'" --count-only --json   # 期望 count=14
 abap select --table ZCRW_NOTIFY --count-only --json                            # 通知行数（复位后为 0；演示数据后为 2，未读 2）
 abap select --table NRIV --where "OBJECT LIKE 'ZCRW%'" --json

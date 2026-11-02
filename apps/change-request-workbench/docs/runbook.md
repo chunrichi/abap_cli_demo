@@ -420,6 +420,7 @@ abap select --table ZCRW_APPR_CFG --json
 - v1 不做 `AUTHORITY-CHECK`，依赖 SAP 登录 + 应用角色（A8）；不创建自定义 AUTH 对象（CLI 不支持，需 basis 人工配置）。
 - 数据范围：请求人仅自己的请求；开发 / 测试按指派；变更经理 / 发布管理员 / 管理员全量；观察者按组件 / 周期。
 - 审批额外校验：非当前步骤审批人 → `APPROVER_MISMATCH`；请求人审批自己 → `SELF_APPROVAL`。
+- 审批改派（M6a）：仅 `PENDING` 步骤，当前审批人 / `CHANGE_MANAGER` / `ADMIN` 可操作；服务端写 `ZCRW_HIST`（`ACTION='REASSIGN'`）并通知新审批人；排查用只读 `abap select --table ZCRW_HIST --where "ACTION = 'REASSIGN'" --json`。
 
 ---
 
@@ -573,6 +574,7 @@ done
 | 健康端点 | 浏览器登录后 GET 相对路径 `/sap/bc/zcrw/api/v1/health` | JSON 200；返回 `status`、`components`（A10 枚举）、`version=1.2.0` |
 | 通知 API | 浏览器登录后 GET `/sap/bc/zcrw/api/v1/notifications?status=UNREAD&size=5`、`/notifications/unread-count` | JSON 200；`data.items[]` / `data.count` 与页面一致 |
 | 页面 / hash 路由 | 浏览器打开 `/sap/bc/zcrw/`、`/sap/bc/zcrw/#/<route>`（如 `#/notifications`）并刷新 | 页面正常渲染、顶栏铃铛可见、刷新不 404（SPA fallback） |
+| 审批改派审计 | `abap select --table ZCRW_HIST --where "ACTION = 'REASSIGN'" --json` | 每次改派 2 行（old/new 可追溯）；无 URL/凭证 |
 | dump | `abap dumps --json` | 近期无 CRW 相关 dump（人工判断） |
 
 补充：`abap run` / `abap test` 的只读性取决于被执行对象；`ZCL_CRW_M1_SMOKE` / `ZCL_CRW_TEST_DATA` / `ZCL_CRW_BOOTSTRAP` / `ZCL_CRW_MIGRATION` / `ZCL_CRW_DEMO_DATA` 会写数据，只能出现在安装 / 开发步骤。`abap run-report ZCRW_REMIND_JOB` 会生成通知（写 `ZCRW_NOTIFY`），属运维步骤（§2.13），**不在只读清单**。

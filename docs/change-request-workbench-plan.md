@@ -1,6 +1,6 @@
 # 变更请求工作台（CRW）· 需求与实施规划
 
-> 状态：规划草案 v9（2026-11-02）。D1–D25 已确认（D24/D25 为 P2 通知增补）；M0 核心验证通过（NROB/MSAG 已修复）；M1–M5 已交付（M5 = P2 站内通知中心 + 提醒报表）；其余 P2 项见 §12.3 / 附录 C。
+> 状态：规划草案 v9（2026-11-03 更新）。D1–D26 已确认（D24/D25 为 P2 通知增补，D26 为 M6a 审批改派）；M0 核心验证通过（NROB/MSAG 已修复）；M1–M5 已交付，M6a 审批改派已交付（M6 进行中）；其余 P2 项见 §12.3 / 附录 C。
 > 定位：**真实应用**，不是 demo。对象、包、升级、权限均按产品标准处理；与 [`AGENTS.md`](../AGENTS.md) 的 demo 契约差异见 §10.4。
 > 技术形态参考 [`demos/01-icf-mime-stats`](../demos/01-icf-mime-stats/README.md)：ICF 节点 + JSON API + MIME 静态单页，本应用沿用并扩展。
 > 文中的 ChaRM 指 SAP Solution Manager 的 Change Request Management，仅作功能参照；本应用不复用其产品名，也不追求完整对标。
@@ -646,6 +646,7 @@ POST /transports/link
 | M3 传输/ToC/计划 | CTS 只读、DEV/ToC 关联、传输工作台、导入计划与提醒 | 传输/计划服务、页面、未关联/逾期告警 | 关联真实 transport 后状态展示正确；计划到期/逾期计算正确；CTS 失败降级 | 10–15 人日 |
 | M4 报表与产品化 | 报表、配置 UI、迁移/runbook、通知、截图、试点 | 报表 + CSV、配置界面、runbook、试点反馈 | DoD 清单全过；试点用户走通一个真实变更 | 8–12 人日 |
 | M5 P2 通知与提醒（2026-11-02 已交付） | 站内通知中心（B1）+ 提醒报表 / SM36（C1）+ P2 basis 设计（E） | `ZCRW_NOTIFY`、`ZCL_CRW_NOTIFY` / `ZCL_CRW_API_NOTIFY`、`/notifications*`、顶栏铃铛 + `#/notifications`、`ZCRW_REMIND_JOB`、`p2-basis.md` | `CRW_SELFCHECK_OK tables=14 version=1.2.0`；notify 单测 5/5；`CRW_NOTIFY_OK rows=0`（复位后）；`ZCRW_REMIND_JOB_OK`；通知 API 控制器探针通过（浏览器 HTTP 待人工） | — |
+| M6 审批增强与产品化（进行中，2026-11-03 起） | 审批改派（已交付）+ ALL 规则 + URG 事后补审；配置编辑；报表日期范围；ADM 检查清单 | `ZCL_CRW_APPR_SVC=>reassign` + `POST /approvals/{id}/reassign` + 审批抽屉改派 + 单测；ALL / 补审待做 | `abap test ZCL_CRW_APPR_SVC` 3/3；改派探针（真实审批步骤 old→new→old）通过；`CRW_SELFCHECK_OK` | — |
 
 合计约 45–68 人日（单开发，含验证与返工）；agent 协作可压缩实现时间，但评审、试点、验收不省。
 
@@ -797,6 +798,7 @@ apps/change-request-workbench/
 | D23 | selfcheck | 增 ICF 节点与 `E070` 只读检查（ICF 缺失 FAIL；CTS 读取失败 DEGRADED） |
 | D24 | 通知模型与去重 | 独立表 `ZCRW_NOTIFY`，按 `USER_ID` 归属；`NOTIFY_TYPE` / `SEVERITY` / `STATUS` / `SOURCE` 枚举固定；幂等键 `USER_ID + DEDUP_KEY`，重复扫描 / 刷新不重复创建（已读 / 已忽略不重建）；通知不驱动状态机（语义见 architecture §5.8、workflow §9） |
 | D25 | 邮件通道 | 本轮只预留 `ZCL_CRW_NOTIFY=>deliver_email`；SMTP / SCOT 未配置前不发信、不影响站内通知；启用前置与验收见 `p2-basis.md` §7.1（SMTP/SCOT）+ runbook §2.13（SM36） |
+| D26 | 审批改派（M6a） | 仅 `PENDING` 步骤；当前审批人 / `CHANGE_MANAGER` / `ADMIN` 可改派；新审批人 ≤12 字符、非当前审批人、非请求人；写 `ZCRW_HIST`（`REASSIGN`）、通知新审批人并标记原审批人通知已读；不做会签 / ALL（M6a 后续） |
 
 **P2 basis 决策记录（2026-11-02）**
 

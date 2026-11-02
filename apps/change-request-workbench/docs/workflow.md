@@ -6,6 +6,7 @@
 > 文档约定：状态码 / 动作码 / 错误码为 ASCII 大写；字段名与 DDIC 一致；**待定** 表示规划未定义、需在对应里程碑前决策。
 > v1 冻结（2026-11-01）：§13 的 W1–W30 已全部裁决；正文中标注“待定”的表述按 §13 “v1 决议”列执行。
 > v1.2.0 增补（2026-11-02，M5）：新增 §9「通知」——站内通知中心、提醒扫描与邮件通道边界；状态机、审批、CTS、计划语义不变。
+> v1.3.0 增补（2026-11-03，M6a）：新增 §6.8「审批改派」；其余语义不变。
 
 ---
 
@@ -130,6 +131,7 @@ IN_PROGRESS ──CLOSE──▶ CLOSED
 | `SUBMIT` | `NEW → PENDING_APPROVAL` | 请求人、变更经理 | 必填项完整（字段集合**待定** W2） | 按审批矩阵生成 CR 审批步骤（`ZCRW_APPR`）；写历史 | `VALIDATION_ERROR` |
 | `WITHDRAW` | `PENDING_APPROVAL → NEW` | 请求人、变更经理 | — | 未决审批步骤置 `SKIPPED`；写历史 | `INVALID_TRANSITION` |
 | `APPROVE_STEP` | `PENDING_APPROVAL → PENDING_APPROVAL` | 当前步骤审批人 | 操作人是当前步骤审批人；非请求人本人 | 当前步骤 `APPROVED` + `DECIDED_AT` + 意见（可选）；末步通过后转 `APPROVED`；写历史 | `APPROVER_MISMATCH` / `SELF_APPROVAL` |
+| `REASSIGN` | `PENDING_APPROVAL → PENDING_APPROVAL` | 当前步骤审批人、变更经理、管理员 | 仅未决步骤；新审批人非请求人、≤12 字符 | 仅替换 `APPROVER`；写历史（`REASSIGN`）并通知新审批人；状态不变 | `VALIDATION_ERROR` / `FORBIDDEN` / `SELF_APPROVAL` |
 | `REJECT` | `PENDING_APPROVAL → REJECTED` | 当前步骤审批人 | 意见必填 | 终止本次审批流；写历史 | `VALIDATION_ERROR` / `APPROVER_MISMATCH` |
 | `REVISE` | `REJECTED → NEW` | 请求人、变更经理 | — | 保留全部历史；再次 `SUBMIT` 时重新生成审批步骤 | `INVALID_TRANSITION` |
 | `START_PROGRESS` | `APPROVED → IN_PROGRESS` | 变更经理、开发 | 必须存在至少 1 个 CD | 写历史 | `GUARD_FAILED` |
@@ -315,6 +317,16 @@ IMPORTED ──CLOSE──▶ CLOSED
 | CD `SUBMIT_APPROVAL` | 生成 CD 导入审批步骤 |
 | CD `MARK_READY` | 要求 CD 审批通过（或该级审批被配置关闭） |
 | CD / CR `CANCEL` | 未决步骤终止 |
+
+### 6.8 审批改派（v1.3.0 / M6a）
+
+| 项 | 规则 |
+|---|---|
+| API | `POST /api/v1/approvals/{id}/reassign`，请求体 `{approver, comment}`；写请求需 `X-CRW-Request: 1` |
+| 权限 | 当前步骤审批人；或 `CHANGE_MANAGER` / `ADMIN` |
+| 约束 | 仅 `PENDING` 步骤；新审批人非空、≤12 字符、不能与当前审批人相同、不能是请求人 |
+| 副作用 | 更新 `ZCRW_APPR.APPROVER`；写 `ZCRW_HIST`（`REASSIGN` / `APPROVER` / old → new）；给新审批人生成 `APPROVAL_PENDING` 通知，并把原审批人 `APPR:{APPR_ID}` 通知标记已读；`COMMIT` |
+| 错误码 | `VALIDATION_ERROR` / `APPR_NOT_FOUND` / `INVALID_TRANSITION` / `FORBIDDEN` / `SELF_APPROVAL` |
 
 ---
 
