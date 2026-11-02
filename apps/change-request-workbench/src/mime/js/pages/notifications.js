@@ -34,6 +34,9 @@ function linkOf(row) {
 
 function objectCell(row) {
   const display = row.objectDisplayId || row.objectId || '';
+  if (!row.objectType) {
+    return `<span class="notify-object"><span class="muted">—</span></span>`;
+  }
   const href = linkOf(row);
   const id = href
     ? `<a class="mono" href="${ui.esc(href)}">${ui.esc(display || '—')}</a>`
